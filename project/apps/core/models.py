@@ -40,18 +40,20 @@ class Position(models.Model):
         """Calculate the returns for the position."""
 
         return_value = 0.0
+        return_value -= self.entry_fee if self.entry_fee else 0
+        return_value -= self.closing_fee if self.closing_fee else 0
         if self.entry_price and self.closing_price and self.amount:
             match self.side:
                 case self._PostionSideChoices.LONG:
-                    return_value = (self.closing_price - self.entry_price) * self.amount
+                    return_value += (
+                        self.closing_price - self.entry_price
+                    ) * self.amount
                 case self._PostionSideChoices.SHORT:
-                    return_value = (self.entry_price - self.closing_price) * self.amount
+                    return_value += (
+                        self.entry_price - self.closing_price
+                    ) * self.amount
         return return_value
 
     def __str__(self):
         """String representation of the Position model."""
-        return (
-            f"{self.start.strftime('%Y-%m-%d %H:%M:%S')} - {self.side}: "
-            f"{'returns: ' + str(self.returns) + ' - ' if self.returns else '0.00 - '}"
-            f"amount: {self.amount}: entry: {self.entry_price} - exit: {self.closing_price}"
-        )
+        return f"Position[{self.id}]"

@@ -12,3 +12,12 @@ class UserAdmin(ImportExportModelAdmin):
 @admin.register(Position)
 class PositionAdmin(ImportExportModelAdmin):
     model = Position
+    list_display = (
+        "id",
+        "start",
+        "end",
+        "side",
+        "returns",
+        "entry_price",
+        "closing_price",
+    )
