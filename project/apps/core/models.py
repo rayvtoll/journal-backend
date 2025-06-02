@@ -52,7 +52,7 @@ class Position(models.Model):
                     return_value += (
                         self.entry_price - self.closing_price
                     ) * self.amount
-        return return_value
+        return round(return_value, 2)
 
     def __str__(self):
         """String representation of the Position model."""
