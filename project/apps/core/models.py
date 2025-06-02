@@ -52,6 +52,6 @@ class Position(models.Model):
         """String representation of the Position model."""
         return (
             f"{self.start.strftime('%Y-%m-%d %H:%M:%S')} - {self.side}: "
-            f"{'returns: ' + self.returns + ' - ' if self.returns else '0.00 - '}"
+            f"{'returns: ' + str(self.returns) + ' - ' if self.returns else '0.00 - '}"
             f"amount: {self.amount}: entry: {self.entry_price} - exit: {self.closing_price}"
         )
