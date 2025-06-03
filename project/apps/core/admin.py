@@ -21,3 +21,4 @@ class PositionAdmin(ImportExportModelAdmin):
         "entry_price",
         "closing_price",
     )
+    list_filter = ("side", "amount", "start", "end")

@@ -1,8 +1,8 @@
 from typing import List
-import django_filters
 from drf_spectacular.utils import extend_schema_view, extend_schema
 from rest_framework.viewsets import ModelViewSet
 
+from project.apps.core.filters import PositionFilterSet
 from project.apps.core.models import Position, User
 from project.apps.core.serializers import PositionSerializer, UserSerializer
 
@@ -46,25 +46,6 @@ class UserViewset(BaseViewSet, ModelViewSet):
 
     model = User
     serializer_class = UserSerializer
-
-
-class PositionFilterSet(django_filters.FilterSet):
-    """FilterSet for the Position model."""
-
-    week_day = django_filters.CharFilter(
-        field_name="start__week_day", lookup_expr="exact"
-    )
-    hour = django_filters.CharFilter(field_name="start__hour", lookup_expr="exact")
-    week_days = django_filters.NumericRangeFilter(
-        field_name="start__week_day", lookup_expr="range"
-    )
-    hours = django_filters.NumericRangeFilter(
-        field_name="start__hour", lookup_expr="range"
-    )
-
-    class Meta:
-        model = Position
-        fields = "__all__"
 
 
 @swagger_class_decorator("Positions")
