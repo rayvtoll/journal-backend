@@ -22,7 +22,7 @@ class PositionTable(tables.Table):
             "exit_price",
         )
         attrs = {
-            "class": "table table-sm table-hover shadow-sm",
+            "class": "table table-hover",
             "th": {
                 "class": "bg-light",
             },
@@ -36,6 +36,7 @@ class PositionListView(SingleTableMixin, FilterView):
     model = Position
     table_class = PositionTable
     filterset_class = PositionFilterSet
+    queryset = Position.objects.all().order_by("-start")
 
     def get_totals(self):
         """Calculate totals for the positions."""

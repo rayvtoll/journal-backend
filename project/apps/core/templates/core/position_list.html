@@ -15,8 +15,13 @@
     <title>Position List</title>
   </head>
   <body>
-    <div class="container-fluid">
-      <h1>Position List</h1>
+    
+      <nav class="navbar navbar-expand-lg navbar-dark bg-secondary mb-4">
+        <div class="container-fluid">
+          <a class="navbar-brand" href="#">Position List</a>
+        </div>
+      </nav>
+      <div class="container-fluid">
       <div class="row row-cols-2">
         <div class="col col-md-4">
           <div class="card mb-3">
@@ -64,7 +69,7 @@
             </form>
           </div>
         </div>
-        <div class="col">
+        <div class="col col-md-8">
           <div class="card mb-3">
             <div class="card-header bg-secondary text-white">Table</div>
             <div class="card-body">{% render_table table %}</div>
