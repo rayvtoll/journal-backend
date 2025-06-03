@@ -14,12 +14,12 @@ class PositionTable(tables.Table):
             "id",
             "start",
             "side",
-            "take_profit_price",
-            "stop_loss_price",
-            "amount",
             "returns",
+            "liquidation_amount",
+            "candles_before_entry",
+            "nr_of_liquidations",
             "entry_price",
-            "exit_price",
+            "closing_price",
         )
         attrs = {
             "class": "table table-hover",
