@@ -16,6 +16,7 @@ CORS_ALLOW_ALL_ORIGINS = config("CORS_ALLOW_ALL_ORIGINS", cast=bool, default=Tru
 INSTALLED_APPS = [
     "project.apps.core",
     "corsheaders",
+    "django_tables2",
     "import_export",
     "django.contrib.admin",
     "django.contrib.auth",
