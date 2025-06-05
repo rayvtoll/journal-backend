@@ -14,14 +14,13 @@
     ></script>
     <title>Position List</title>
   </head>
-  <body>
-    
-      <nav class="navbar navbar-expand-lg navbar-dark bg-secondary mb-4">
-        <div class="container-fluid">
-          <a class="navbar-brand" href="#">Position List</a>
-        </div>
-      </nav>
+  <body class="bg-light bg-gradient">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-secondary mb-4">
       <div class="container-fluid">
+        <a class="navbar-brand" href="#">Position List</a>
+      </div>
+    </nav>
+    <div class="container-fluid">
       <div class="row row-cols-2">
         <div class="col col-md-4">
           <div class="card mb-3">
@@ -33,12 +32,15 @@
               <li class="list-group-item">
                 Total Returns: {{ total_returns }}
               </li>
+              <li class="list-group-item">
+                <img style="width: 100%" src="data:image/png;base64,{{ img }}" />
+              </li>
             </ul>
           </div>
           <div class="card mb-3">
             <div class="card-header bg-secondary text-white">Filter</div>
             <form method="get">
-              <table class="table table-sm mb-0">
+              <table class="table table-sm table-borderless mb-1">
                 <tbody>
                   {% for f in filter.form %}
                   <tr>
@@ -46,24 +48,25 @@
                     <td>{{ f }}</td>
                   </tr>
                   {% endfor %}
-                  <td>
-                    <button class="btn btn-sm btn-primary" type="submit">
-                      filteren &nbsp;
-                      <svg
-                        version="1.2"
-                        baseProfile="tiny"
-                        width="16"
-                        height="16"
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 64 64"
-                      >
-                        <path
-                          d="M51.787 11.693C51.787 7.297 41.79 4 31.91 4c-9.88 0-19.877 3.297-19.877 7.693 0 1.536.004 4.27.759 6.37 2.603 7.233 9.062 16.003 12.26 19.873 1.961 1.9 7.738 1.021 7.9 1.02.003.084.009.218-.186.354-.22.155-2.65 1.242-6.718 1.625l.893 17.167C26.94 59.15 29.166 60 31.91 60s4.97-.85 4.97-1.898L37.872 39c2.638-3.058 10.28-12.946 13.155-20.938.755-2.098.759-4.833.759-6.369zM32 18.12c-8.46 0-15.5-2.16-15.5-5.046 0-2.887 7.04-5.227 15.5-5.227s15.5 2.34 15.5 5.227c0 2.887-7.04 5.046-15.5 5.046z"
-                        />
-                      </svg>
-                    </button>
-                  </td>
-                  <td></td>
+                  <tr>
+                    <td>
+                      <button class="btn btn-sm btn-primary" type="submit">
+                        filteren &nbsp;
+                        <svg
+                          version="1.2"
+                          baseProfile="tiny"
+                          width="16"
+                          height="16"
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 64 64"
+                        >
+                          <path
+                            d="M51.787 11.693C51.787 7.297 41.79 4 31.91 4c-9.88 0-19.877 3.297-19.877 7.693 0 1.536.004 4.27.759 6.37 2.603 7.233 9.062 16.003 12.26 19.873 1.961 1.9 7.738 1.021 7.9 1.02.003.084.009.218-.186.354-.22.155-2.65 1.242-6.718 1.625l.893 17.167C26.94 59.15 29.166 60 31.91 60s4.97-.85 4.97-1.898L37.872 39c2.638-3.058 10.28-12.946 13.155-20.938.755-2.098.759-4.833.759-6.369zM32 18.12c-8.46 0-15.5-2.16-15.5-5.046 0-2.887 7.04-5.227 15.5-5.227s15.5 2.34 15.5 5.227c0 2.887-7.04 5.046-15.5 5.046z"
+                          />
+                        </svg>
+                      </button>
+                    </td>
+                  </tr>
                 </tbody>
               </table>
             </form>
@@ -72,7 +75,7 @@
         <div class="col col-md-8">
           <div class="card mb-3">
             <div class="card-header bg-secondary text-white">Table</div>
-            <div class="card-body">{% render_table table %}</div>
+            <div class="card-body p-0 m-0">{% render_table table %}</div>
           </div>
         </div>
       </div>
