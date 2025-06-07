@@ -129,7 +129,7 @@ class PositionListView(SingleTableMixin, FilterView):
 
         # x as
         x_as_data = [
-            str(position.start.strftime("%Y-%m-%d")) for position in object_list
+            str(i) for i in range(len(object_list))
         ]
 
         # y as
@@ -140,16 +140,12 @@ class PositionListView(SingleTableMixin, FilterView):
             returns.append(total_returns)
         y_as_data = [i for i in returns]
 
-        # figuur
+        # create plot
         fig, ax = plt.subplots()
         fig.set_size_inches(9, 4)
 
-        # labels
-        ax.set_xticks(range(len(x_as_data)))
-        ax.set_xticklabels(x_as_data)
-
-        # Format x-axis dates for better readability
-        plt.xticks(rotation=90, ha="right")
+        # hide x-axis labels
+        ax.get_xaxis().set_visible(False)
 
         # plots
         c = color_list.pop()
@@ -158,7 +154,7 @@ class PositionListView(SingleTableMixin, FilterView):
         )
         ax.fill_between(x_as_data, 0, y_as_data, alpha=0.3, color=c)
 
-        # bewerkingen
+        # add image to context
         context["img"] = _image_encoder(_plotter(plt))
 
         return context | self.totals
