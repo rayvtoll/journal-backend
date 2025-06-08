@@ -3,36 +3,13 @@ import io
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from django_tables2 import SingleTableMixin, tables
+from django_tables2 import SingleTableMixin
 from django_filters.views import FilterView
 from django.db.models import QuerySet
 
 from project.apps.core.filters import PositionFilterSet
 from project.apps.core.models import Position
-
-
-class PositionTable(tables.Table):
-    """Position tabel"""
-
-    class Meta:
-        model = Position
-        fields = (
-            "id",
-            "start",
-            "side",
-            "returns",
-            "liquidation_amount",
-            "candles_before_entry",
-            "nr_of_liquidations",
-            "entry_price",
-            "closing_price",
-        )
-        attrs = {
-            "class": "table table-hover",
-            "th": {
-                "class": "bg-light",
-            },
-        }
+from project.apps.core.tables import PositionTable
 
 
 class PositionListView(SingleTableMixin, FilterView):
@@ -57,20 +34,14 @@ class PositionListView(SingleTableMixin, FilterView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        CB91_Blue = "#2CBDFE"
-        CB91_Green = "#47DBCD"
-        CB91_Pink = "#F3A0F2"
-        CB91_Purple = "#9D2EC5"
-        CB91_Violet = "#661D98"
-        CB91_Amber = "#F5B14C"
 
         color_list = [
-            CB91_Violet,
-            CB91_Pink,
-            CB91_Purple,
-            CB91_Green,
-            CB91_Amber,
-            CB91_Blue,
+            "#47DBCD",
+            "#F3A0F2",
+            "#9D2EC5",
+            "#661D98",
+            "#F5B14C",
+            "#2CBDFF",
         ]
 
         plt.rcParams["axes.prop_cycle"] = plt.cycler(color=color_list)

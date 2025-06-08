@@ -38,6 +38,7 @@ class PositionFilterSet(django_filters.FilterSet):
     class Meta:
         model = Position
         fields = (
+            "time_frame",
             "side",
             "start_date_gte",
             "start_date_lte",

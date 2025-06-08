@@ -1,4 +1,6 @@
+from django.urls import reverse
 from django.contrib.auth.models import AbstractUser
+from django.contrib.contenttypes.models import ContentType
 from django.db import models
 
 
@@ -15,6 +17,11 @@ class Position(models.Model):
         LONG = "LONG", "LONG"
         SHORT = "SHORT", "SHORT"
 
+    class _TimeFrameChoices(models.TextChoices):
+        ONE_MINUTE = "1m", "1 Minute"
+        FIVE_MINUTES = "5m", "5 Minutes"
+        FIFTEEN_MINUTES = "15m", "15 Minutes"
+
     side = models.CharField(
         max_length=10,
         choices=_PostionSideChoices.choices,
@@ -26,6 +33,11 @@ class Position(models.Model):
     candles_before_entry = models.IntegerField(null=True, blank=True)
     liquidation_amount = models.IntegerField(null=True, blank=True)
     nr_of_liquidations = models.IntegerField(null=True, blank=True)
+    time_frame = models.CharField(
+        max_length=5,
+        choices=_TimeFrameChoices.choices,
+        default=_TimeFrameChoices.FIVE_MINUTES,
+    )
 
     start = models.DateTimeField()
     entry_price = models.FloatField(null=True, blank=True)
@@ -36,10 +48,18 @@ class Position(models.Model):
     closing_fee = models.FloatField(null=True, blank=True)
 
     @property
+    def admin_url(self):
+        content_type = ContentType.objects.get_for_model(self.__class__)
+        return reverse(
+            "admin:%s_%s_change" % (content_type.app_label, content_type.model),
+            args=(self.id,),
+        )
+
+    @property
     def returns(self) -> float:
         """Calculate the returns for the position."""
 
-        return_value = 0.0
+        return_value = 0.00
         return_value -= self.entry_fee if self.entry_fee else 0
         return_value -= self.closing_fee if self.closing_fee else 0
         if self.entry_price and self.closing_price and self.amount:

@@ -14,23 +14,21 @@
     ></script>
     <title>Position List</title>
   </head>
-  <body class="bg-light bg-gradient">
-    <nav class="navbar navbar-expand-lg navbar-dark bg-secondary mb-4">
+  <body class="bg-body-secondary">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark bg-gradient mb-4">
       <div class="container-fluid">
         <a class="navbar-brand" href="#">Position List</a>
+        <a class="btn btn-outline-light" href="/admin/">Admin</a>
       </div>
     </nav>
     <div class="container-fluid">
       <div class="row row-cols-2">
         <div class="col col-md-4">
           <div class="card mb-3">
-            <div class="card-header bg-primary text-white">Totals</div>
+            <div class="card-header bg-secondary bg-gradient text-white">Returns</div>
             <ul class="list-group list-group-flush">
               <li class="list-group-item">
-                Total Positions: {{ len_positions }}
-              </li>
-              <li class="list-group-item">
-                Total Returns: {{ total_returns }}
+                Total: ${{ total_returns }}
               </li>
               <li class="list-group-item">
                 <img style="width: 100%" src="data:image/png;base64,{{ img }}" />
@@ -38,7 +36,7 @@
             </ul>
           </div>
           <div class="card mb-3">
-            <div class="card-header bg-secondary text-white">Filter</div>
+            <div class="card-header bg-secondary bg-gradient text-white">Filter</div>
             <form method="get">
               <table class="table table-sm table-borderless mb-1">
                 <tbody>
@@ -74,7 +72,7 @@
         </div>
         <div class="col col-md-8">
           <div class="card mb-3">
-            <div class="card-header bg-secondary text-white">Table</div>
+            <div class="card-header bg-secondary bg-gradient text-white">Table</div>
             <div class="card-body p-0 m-0">{% render_table table %}</div>
           </div>
         </div>

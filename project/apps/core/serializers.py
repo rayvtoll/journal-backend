@@ -16,10 +16,10 @@ class PositionSerializer(serializers.ModelSerializer):
 
     returns = serializers.SerializerMethodField("get_returns")
 
-    def get_returns(self, obj) -> float:
+    def get_returns(self, position: Position) -> float:
         """Calculate the returns for the position."""
 
-        return obj.returns
+        return position.returns
 
     class Meta:
         model = Position
