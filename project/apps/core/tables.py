@@ -9,12 +9,13 @@ class PositionTable(tables.Table):
     id = TemplateColumn(
         template_code="""<a href="{{ record.admin_url }}">{{ record.id }}</a>"""
     )
+    returns = tables.Column(orderable=False)
 
     class Meta:
         model = Position
         fields = (
             "id",
-            "time_frame",
+            # "time_frame", # TODO: add time_frame field when more strategies are implemented
             "start",
             "side",
             "returns",
