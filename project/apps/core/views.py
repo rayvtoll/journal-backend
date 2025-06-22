@@ -21,7 +21,7 @@ class PositionListView(SingleTableMixin, FilterView):
     filterset_class = PositionFilterSet
 
     def get_queryset(self):
-        return super().get_queryset().order_by("-start")
+        return super().get_queryset().filter(candles_before_entry=1).order_by("-start")
 
     @property
     def totals(self) -> dict:

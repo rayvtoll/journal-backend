@@ -84,7 +84,6 @@ class PositionFilterSet(django_filters.FilterSet):
             "start_date_lte",
             "week_days",
             "hours",
-            "candles_before_entry",
             "nr_of_liquidations",
             "min_liquidation_amount",
             "max_liquidation_amount",
