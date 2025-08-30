@@ -1,7 +1,7 @@
 from import_export.admin import ImportExportModelAdmin
 from django.contrib import admin
 
-from .models import User, Position
+from .models import User, Position, OHLCV
 
 
 @admin.register(User)
@@ -22,3 +22,20 @@ class PositionAdmin(ImportExportModelAdmin):
         "closing_price",
     )
     list_filter = ("side", "amount", "start", "end")
+
+
+@admin.register(OHLCV)
+class OHLCVAdmin(ImportExportModelAdmin):
+    model = OHLCV
+    list_display = (
+        "id",
+        "symbol",
+        "timeframe",
+        "datetime",
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume",
+    )
+    list_filter = ("symbol", "timeframe", "datetime")

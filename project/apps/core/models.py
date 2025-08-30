@@ -78,21 +78,21 @@ class Position(models.Model):
         """String representation of the Position model."""
         return f"Position[{self.id}]"
 
-# class OHLCV(models.Model):
-#     """OHLCV model for storing Open, High, Low, Close, Volume data."""
+class OHLCV(models.Model):
+    """OHLCV model for storing Open, High, Low, Close, Volume data."""
 
-#     symbol = models.CharField(max_length=20)
-#     timeframe = models.CharField(max_length=5, default="5m")
-#     open_time = models.DateTimeField()
-#     open_price = models.FloatField()
-#     high_price = models.FloatField()
-#     low_price = models.FloatField()
-#     close_price = models.FloatField()
-#     volume = models.FloatField()
+    symbol = models.CharField(max_length=20)
+    timeframe = models.CharField(max_length=5, default="5m")
+    datetime = models.DateTimeField()
+    open = models.FloatField()
+    high = models.FloatField()
+    low = models.FloatField()
+    close = models.FloatField()
+    volume = models.FloatField()
 
-#     class Meta:
-#         unique_together = ("symbol", "timeframe", "open_time")
+    class Meta:
+        unique_together = ("symbol", "timeframe", "datetime")
 
-#     def __str__(self):
-#         """String representation of the OHLCV model."""
-#         return f"OHLCV[{self.symbol} - {self.timeframe} - {self.open_time}]"
+    def __str__(self):
+        """String representation of the OHLCV model."""
+        return f"OHLCV[{self.symbol} - {self.timeframe} - {self.datetime}]"
