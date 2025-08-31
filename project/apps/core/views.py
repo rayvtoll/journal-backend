@@ -193,91 +193,76 @@ class PositionWhatIfView(FormView):
             tp1_finished = False
             tp2_finished = False
             amount = position.amount
+            total_returns -= 0.007  # exchange fees for opening trade
+            start = ohlcv_s.first().open if ohlcv_s.exists() else 0
             for candle in ohlcv_s:
                 if position.side == "LONG":
 
                     # SL
-                    if candle.low <= position.entry_price - (
-                        position.entry_price * sl / 100
-                    ):
-                        total_returns += (
-                            -(position.entry_price * sl / 100) * position.amount
-                        )
+                    if candle.low <= start - (start * sl / 100):
+                        total_returns -= 0.007  # exchange fees for closing trade
+                        total_returns -= (start * sl / 100) * amount
                         returns.append(total_returns)
                         dates.append(position.start)
                         break
 
                     # TP1
                     if use_tp1 and not tp1_finished:
-
-                        if candle.close >= position.entry_price + (
-                            position.entry_price * (tp1 / 100 * tp / 100)
-                        ):
-                            total_returns += (
-                                position.entry_price * (tp * tp1 / 100) / 100
-                            ) * (amount * tp1_amount / 100)
-                            amount = amount * (1 - (tp1_amount / 100))
+                        if candle.close >= start + (start * (tp1 / 100 * tp / 100)):
+                            total_returns += (start * (tp * tp1 / 100) / 100) * (
+                                position.amount * tp1_amount / 100
+                            )
+                            amount = amount - (position.amount * tp1_amount / 100)
                             tp1_finished = True
 
                     # TP2
                     if use_tp2 and not tp2_finished:
-                        if candle.close >= position.entry_price + (
-                            position.entry_price * (tp2 / 100 * tp / 100)
-                        ):
-                            total_returns += (
-                                position.entry_price * (tp * tp2 / 100) / 100
-                            ) * (amount * tp2_amount / 100)
-                            amount = amount * (1 - (tp2_amount / 100))
+                        if candle.close >= start + (start * (tp2 * tp / 100)):
+                            total_returns += (start * (tp * tp2 / 100)) * (
+                                position.amount * tp2_amount / 100
+                            )
+                            amount = amount - (position.amount * tp2_amount / 100)
                             tp2_finished = True
 
                     # final TP
-                    if candle.close >= position.entry_price + (
-                        position.entry_price * tp / 100
-                    ):
-                        total_returns += (position.entry_price * tp / 100) * amount
+                    if candle.close >= start + (start * tp / 100):
+                        total_returns -= 0.002  # exchange fees for closing trade
+                        total_returns += (start * tp / 100) * amount
                         returns.append(total_returns)
                         dates.append(position.start)
                         break
 
                 if position.side == "SHORT":
                     # SL
-                    if candle.high >= position.entry_price + (
-                        position.entry_price * sl / 100
-                    ):
-                        total_returns += (
-                            -(position.entry_price * sl / 100) * position.amount
-                        )
+                    if candle.high >= start + (start * sl / 100):
+                        total_returns -= 0.007  # exchange fees for closing trade
+                        total_returns -= (start * sl / 100) * amount
                         returns.append(total_returns)
                         dates.append(position.start)
                         break
 
                     # TP1
                     if use_tp1 and not tp1_finished:
-                        if candle.close <= position.entry_price - (
-                            position.entry_price * (tp1 / 100 * tp / 100)
-                        ):
-                            total_returns += (
-                                position.entry_price * (tp * tp1 / 100) / 100
-                            ) * (amount * tp1_amount / 100)
-                            amount = amount * (1 - (tp1_amount / 100))
+                        if candle.close <= start - (start * (tp1 / 100 * tp / 100)):
+                            total_returns += (start * (tp * tp1 / 100) / 100) * (
+                                position.amount * tp1_amount / 100
+                            )
+                            amount = amount - (position.amount * tp1_amount / 100)
                             tp1_finished = True
 
                     # TP2
                     if use_tp2 and not tp2_finished:
-                        if candle.close <= position.entry_price - (
-                            position.entry_price * (tp2 / 100 * tp / 100)
-                        ):
-                            total_returns += (
-                                position.entry_price * (tp * tp2 / 100) / 100
-                            ) * (amount * tp2_amount / 100)
-                            amount = amount * (1 - (tp2_amount / 100))
+                        if candle.close <= start - (start * (tp2 * tp / 100)):
+                            total_returns += (start * (tp * tp2 / 100) / 100) * (
+                                position.amount * tp2_amount / 100
+                            )
+                            amount = amount - (position.amount * tp2_amount / 100)
                             tp2_finished = True
 
                     # final TP
-                    if candle.close <= position.entry_price - (
-                        position.entry_price * tp / 100
-                    ):
-                        total_returns += (position.entry_price * tp / 100) * amount
+                    if candle.close <= start - (start * tp / 100):
+                        total_returns -= 0.002  # exchange fees for closing trade
+                        total_returns += (start * tp / 100) * amount
                         returns.append(total_returns)
                         dates.append(position.start)
                         break
@@ -293,7 +278,9 @@ class PositionWhatIfView(FormView):
 
         # hide x-axis labels
         plt.setp(ax.get_xticklabels(), rotation=45)
-        plt.grid(visible=True, which="major", axis="y", color="lightgrey", linestyle="--")
+        plt.grid(
+            visible=True, which="major", axis="y", color="lightgrey", linestyle="--"
+        )
 
         # plots
         c = COLOR_LIST[-1]
