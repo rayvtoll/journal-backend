@@ -217,8 +217,8 @@ class PositionWhatIfView(FormView):
 
                     # TP2
                     if use_tp2 and not tp2_finished:
-                        if candle.close >= start + (start * (tp2 * tp / 100)):
-                            total_returns += (start * (tp * tp2 / 100)) * (
+                        if candle.close >= start + (start * (tp2 / 100 * tp / 100)):
+                            total_returns += (start * (tp * tp2 / 100) / 100) * (
                                 position.amount * tp2_amount / 100
                             )
                             amount = amount - (position.amount * tp2_amount / 100)
@@ -252,7 +252,7 @@ class PositionWhatIfView(FormView):
 
                     # TP2
                     if use_tp2 and not tp2_finished:
-                        if candle.close <= start - (start * (tp2 * tp / 100)):
+                        if candle.close <= start - (start * (tp2 / 100 * tp / 100)):
                             total_returns += (start * (tp * tp2 / 100) / 100) * (
                                 position.amount * tp2_amount / 100
                             )
