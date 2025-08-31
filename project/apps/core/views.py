@@ -165,6 +165,10 @@ class PositionWhatIfView(FormView):
             object_list = object_list.filter(start__week_day__in=weekdays)
         if hours := form.cleaned_data["hours"]:
             object_list = object_list.filter(start__hour__in=hours)
+        if min_liq := form.cleaned_data.get("min_liquidation_amount"):
+            object_list = object_list.filter(liquidation_amount__gte=min_liq)
+        if max_liq := form.cleaned_data.get("max_liquidation_amount"):
+            object_list = object_list.filter(liquidation_amount__lte=max_liq)
 
         object_list = object_list.order_by("start")
 

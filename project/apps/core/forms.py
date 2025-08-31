@@ -23,3 +23,9 @@ class WhatIfForm(forms.Form):
         widget=forms.CheckboxSelectMultiple,
         initial=[0, 1, 2, 3, 4, 5, 6],
     )
+    min_liquidation_amount = forms.IntegerField(
+        label="Min Liquidation Amount", required=False
+    )
+    max_liquidation_amount = forms.IntegerField(
+        label="Max Liquidation Amount", required=False
+    )
