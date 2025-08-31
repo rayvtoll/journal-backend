@@ -293,6 +293,7 @@ class PositionWhatIfView(FormView):
 
         # hide x-axis labels
         plt.setp(ax.get_xticklabels(), rotation=45)
+        plt.grid(visible=True, which="major", axis="y", color="lightgrey", linestyle="--")
 
         # plots
         c = COLOR_LIST[-1]
