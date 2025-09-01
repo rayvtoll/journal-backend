@@ -54,6 +54,7 @@ SNS_THEME = dict(
 def plotter(plt: plt, legend: bool = True) -> io.BytesIO:
     """functie die een plot als een plaatje teruggeeft"""
 
+    plt.grid(visible=True, which="major", axis="y", color="lightgrey", linestyle="--")
     if legend:
         plt.legend(frameon=False)
     s = io.BytesIO()
@@ -278,9 +279,6 @@ class PositionWhatIfView(FormView):
 
         # hide x-axis labels
         plt.setp(ax.get_xticklabels(), rotation=45)
-        plt.grid(
-            visible=True, which="major", axis="y", color="lightgrey", linestyle="--"
-        )
 
         # plots
         c = COLOR_LIST[-1]

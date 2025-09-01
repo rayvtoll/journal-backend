@@ -29,7 +29,6 @@ class PositionFilterSet(django_filters.FilterSet):
             (7, "Saturday"),
             (1, "Sunday"),
         ],
-        initial=(2, 3, 4, 5, 6, 7),
     )
 
     hours = django_filters.MultipleChoiceFilter(
@@ -62,7 +61,7 @@ class PositionFilterSet(django_filters.FilterSet):
             (22, "22:00"),
             (23, "23:00"),
         ],
-        initial=(1, 2, 3, 4, 14, 15, 16, 17),
+        initial=(2, 3, 4, 15, 17, 18),
     )
 
     min_liquidation_amount = django_filters.NumberFilter(

@@ -2,13 +2,13 @@ from django import forms
 
 
 class WhatIfForm(forms.Form):
-    sl = forms.FloatField(label="Stop Loss (%)", initial=0.5)
-    tp = forms.FloatField(label="Take Profit (%)", initial=5)
+    sl = forms.FloatField(label="Stop Loss (%)", initial=0.475)
+    tp = forms.FloatField(label="Take Profit (%)", initial=4.75)
     start_date_gte = forms.DateField(label="Start Date (gte)", required=False)
-    use_tp1 = forms.BooleanField(label="Use TP 1", initial=True, required=False)
+    use_tp1 = forms.BooleanField(label="Use TP 1", required=False)
     tp1 = forms.FloatField(label="TP 1 (%)", initial=50)
     tp1_amount = forms.FloatField(label="TP 1 Amount", initial=20)
-    use_tp2 = forms.BooleanField(label="Use TP 2", initial=True, required=False)
+    use_tp2 = forms.BooleanField(label="Use TP 2", required=False)
     tp2 = forms.FloatField(label="TP 2 (%)", initial=70)
     tp2_amount = forms.FloatField(label="TP 2 Amount", initial=50)
     hours = forms.MultipleChoiceField(
@@ -21,7 +21,7 @@ class WhatIfForm(forms.Form):
         label="Week Days",
         choices=[(i, f"{i+1}") for i in range(0, 7)],
         widget=forms.CheckboxSelectMultiple,
-        initial=[0, 1, 2, 3, 4, 5, 6],
+        required=False,
     )
     min_liquidation_amount = forms.IntegerField(
         label="Min Liquidation Amount", required=False
