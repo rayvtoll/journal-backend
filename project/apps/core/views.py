@@ -162,6 +162,8 @@ class PositionWhatIfView(FormView):
         )
         if start_date_gte := form.cleaned_data["start_date_gte"]:
             object_list = object_list.filter(start__gte=start_date_gte)
+        if start_date_lt := form.cleaned_data["start_date_lt"]:
+            object_list = object_list.filter(start__lt=start_date_lt)
         if weekdays := form.cleaned_data["week_days"]:
             object_list = object_list.filter(start__week_day__in=weekdays)
         if hours := form.cleaned_data["hours"]:
@@ -173,10 +175,11 @@ class PositionWhatIfView(FormView):
 
         object_list = object_list.order_by("start")
 
-        # y as
         returns = []
         dates = []
         total_returns = 0
+        wins = 0
+        losses = 0
         sl = form.cleaned_data["sl"]
         tp = form.cleaned_data["tp"]
         use_tp1 = form.cleaned_data["use_tp1"]
@@ -189,7 +192,7 @@ class PositionWhatIfView(FormView):
         for position in object_list:
             ohlcv_s = OHLCV.objects.filter(
                 datetime__gte=position.start,
-                datetime__lt=position.start + timezone.timedelta(days=14),
+                datetime__lt=position.start + timezone.timedelta(days=15),
             ).order_by("datetime")
             tp1_finished = False
             tp2_finished = False
@@ -205,6 +208,7 @@ class PositionWhatIfView(FormView):
                         total_returns -= (start * sl / 100) * amount
                         returns.append(total_returns)
                         dates.append(position.start)
+                        losses += 1
                         break
 
                     # TP1
@@ -231,6 +235,7 @@ class PositionWhatIfView(FormView):
                         total_returns += (start * tp / 100) * amount
                         returns.append(total_returns)
                         dates.append(position.start)
+                        wins += 1
                         break
 
                 if position.side == "SHORT":
@@ -240,6 +245,7 @@ class PositionWhatIfView(FormView):
                         total_returns -= (start * sl / 100) * amount
                         returns.append(total_returns)
                         dates.append(position.start)
+                        losses += 1
                         break
 
                     # TP1
@@ -266,6 +272,7 @@ class PositionWhatIfView(FormView):
                         total_returns += (start * tp / 100) * amount
                         returns.append(total_returns)
                         dates.append(position.start)
+                        wins += 1
                         break
 
         y_as_data = [i for i in returns]
@@ -290,4 +297,13 @@ class PositionWhatIfView(FormView):
         # add image to context
         img = image_encoder(plotter(plt))
 
-        return self.render_to_response(self.get_context_data(img=img, form=form))
+        return self.render_to_response(
+            self.get_context_data(
+                img=img,
+                form=form,
+                ratio=wins / (wins + losses),
+                wins=wins,
+                losses=losses,
+                nr_of_trades=wins + losses,
+            )
+        )

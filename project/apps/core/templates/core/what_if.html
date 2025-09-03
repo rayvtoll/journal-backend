@@ -7,6 +7,10 @@
     <div class="card mb-3">
       <div class="card-header bg-gradient text-bg-secondary">Returns</div>
       <ul class="list-group list-group-flush">
+        <li class="list-group-item"># Trades: {{ nr_of_trades }}</li>
+        <li class="list-group-item">Wins: {{ wins }}</li>
+        <li class="list-group-item">Losses: {{ losses }}</li>
+        <li class="list-group-item">Win Ratio: {{ ratio|floatformat:2 }}</li>
         <li class="list-group-item">
           <img style="width: 100%" src="data:image/png;base64,{{ img }}" />
         </li>

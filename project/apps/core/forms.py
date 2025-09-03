@@ -1,10 +1,20 @@
 from django import forms
 
+FORM_DAY_CHOICES = [
+    (2, "Monday"),
+    (3, "Tuesday"),
+    (4, "Wednesday"),
+    (5, "Thursday"),
+    (6, "Friday"),
+    (7, "Saturday"),
+    (1, "Sunday"),
+]
 
 class WhatIfForm(forms.Form):
     sl = forms.FloatField(label="Stop Loss (%)", initial=0.475)
-    tp = forms.FloatField(label="Take Profit (%)", initial=4.75)
+    tp = forms.FloatField(label="Take Profit (%)", initial=5)
     start_date_gte = forms.DateField(label="Start Date (gte)", required=False)
+    start_date_lt = forms.DateField(label="Start Date (lt)", required=False)
     use_tp1 = forms.BooleanField(label="Use TP 1", required=False)
     tp1 = forms.FloatField(label="TP 1 (%)", initial=50)
     tp1_amount = forms.FloatField(label="TP 1 Amount", initial=20)
@@ -19,7 +29,7 @@ class WhatIfForm(forms.Form):
     )
     week_days = forms.MultipleChoiceField(
         label="Week Days",
-        choices=[(i, f"{i+1}") for i in range(0, 7)],
+        choices=FORM_DAY_CHOICES,
         widget=forms.CheckboxSelectMultiple,
         required=False,
     )
