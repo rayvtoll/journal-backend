@@ -11,6 +11,7 @@ FORM_DAY_CHOICES = [
 ]
 
 class WhatIfForm(forms.Form):
+    reverse = forms.BooleanField(label="Reverse LONG-SHORT", required=False)
     sl = forms.FloatField(label="Stop Loss (%)", initial=0.475)
     tp = forms.FloatField(label="Take Profit (%)", initial=5)
     start_date_gte = forms.DateField(label="Start Date (gte)", required=False)

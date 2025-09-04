@@ -22,7 +22,7 @@ async def get_closing_data() -> List[dict]:
     """Asynchronously fetches closing data for a given position."""
 
     candles = []
-    for days in range(1, 200):
+    for days in range(1, 10):
         candles = candles + await EXCHANGE.fetch_ohlcv(
             symbol="BTC/USDT:USDT",
             timeframe="5m",

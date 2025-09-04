@@ -188,8 +188,13 @@ class PositionWhatIfView(FormView):
         use_tp2 = form.cleaned_data["use_tp2"]
         tp2 = form.cleaned_data["tp2"]
         tp2_amount = form.cleaned_data["tp2_amount"]
+        reverse = form.cleaned_data["reverse"]
 
         for position in object_list:
+            if reverse:
+                # do NOT save this to the database, just for the what-if analysis
+                position.side = "SHORT" if position.side == "LONG" else "LONG"
+
             ohlcv_s = OHLCV.objects.filter(
                 datetime__gte=position.start,
                 datetime__lt=position.start + timezone.timedelta(days=15),
