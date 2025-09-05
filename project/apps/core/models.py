@@ -27,6 +27,15 @@ class Position(models.Model):
         choices=_PostionSideChoices.choices,
         default=_PostionSideChoices.LONG,
     )
+    strategy_type = models.CharField(
+        max_length=10,
+        choices=[
+            ("live", "Live"),
+            ("reversed", "Reversed"),
+            ("journaling", "Journaling"),
+        ],
+        default="live",
+    )
     take_profit_price = models.FloatField(null=True, blank=True)
     stop_loss_price = models.FloatField(null=True, blank=True)
     amount = models.FloatField()
@@ -77,6 +86,7 @@ class Position(models.Model):
     def __str__(self):
         """String representation of the Position model."""
         return f"Position[{self.id}]"
+
 
 class OHLCV(models.Model):
     """OHLCV model for storing Open, High, Low, Close, Volume data."""

@@ -79,6 +79,7 @@ class PositionFilterSet(django_filters.FilterSet):
         model = Position
         fields = (
             "side",
+            "strategy_type",
             "start_date_gte",
             "start_date_lte",
             "week_days",

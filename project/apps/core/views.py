@@ -172,6 +172,8 @@ class PositionWhatIfView(FormView):
             object_list = object_list.filter(liquidation_amount__gte=min_liq)
         if max_liq := form.cleaned_data.get("max_liquidation_amount"):
             object_list = object_list.filter(liquidation_amount__lte=max_liq)
+        if strategy_types := form.cleaned_data["strategy_types"]:
+            object_list = object_list.filter(strategy_type__in=strategy_types)
 
         object_list = object_list.order_by("start")
 
@@ -189,9 +191,12 @@ class PositionWhatIfView(FormView):
         tp2 = form.cleaned_data["tp2"]
         tp2_amount = form.cleaned_data["tp2_amount"]
         reverse = form.cleaned_data["reverse"]
+        no_overlap = form.cleaned_data["no_overlap"]
+        last_long_candle_datetime = None
+        last_short_candle_datetime = None
 
         for position in object_list:
-            if reverse:
+            if reverse and position.strategy_type != "reversed":
                 # do NOT save this to the database, just for the what-if analysis
                 position.side = "SHORT" if position.side == "LONG" else "LONG"
 
@@ -206,6 +211,12 @@ class PositionWhatIfView(FormView):
             start = ohlcv_s.first().open if ohlcv_s.exists() else 0
             for candle in ohlcv_s:
                 if position.side == "LONG":
+
+                    # prevent overlapping trades if no_overlap is checked
+                    if no_overlap:
+                        if last_long_candle_datetime and candle.datetime < last_long_candle_datetime:
+                            break
+                        last_long_candle_datetime = candle.datetime
 
                     # SL
                     if candle.low <= start - (start * sl / 100):
@@ -244,6 +255,13 @@ class PositionWhatIfView(FormView):
                         break
 
                 if position.side == "SHORT":
+
+                    # prevent overlapping trades if no_overlap is checked
+                    if no_overlap:
+                        if last_short_candle_datetime and candle.datetime < last_short_candle_datetime:
+                            break
+                        last_short_candle_datetime = candle.datetime
+
                     # SL
                     if candle.high >= start + (start * sl / 100):
                         total_returns -= 0.007  # exchange fees for closing trade
@@ -306,7 +324,7 @@ class PositionWhatIfView(FormView):
             self.get_context_data(
                 img=img,
                 form=form,
-                ratio=wins / (wins + losses),
+                ratio=(wins / (wins + losses)) if wins and losses else 0,
                 wins=wins,
                 losses=losses,
                 nr_of_trades=wins + losses,

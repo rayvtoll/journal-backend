@@ -12,8 +12,19 @@ FORM_DAY_CHOICES = [
 
 class WhatIfForm(forms.Form):
     reverse = forms.BooleanField(label="Reverse LONG-SHORT", required=False)
+    no_overlap = forms.BooleanField(label="No Overlap", required=False)
+    strategy_types = forms.MultipleChoiceField(
+        label="Strategy Types",
+        choices=[
+            ("live", "Live"),
+            ("reversed", "Reversed"),
+            ("journaling", "Journaling"),
+        ],
+        widget=forms.CheckboxSelectMultiple,
+        initial=["live", "journaling"],
+    )
     sl = forms.FloatField(label="Stop Loss (%)", initial=0.475)
-    tp = forms.FloatField(label="Take Profit (%)", initial=5)
+    tp = forms.FloatField(label="Take Profit (%)", initial=4)
     start_date_gte = forms.DateField(label="Start Date (gte)", required=False)
     start_date_lt = forms.DateField(label="Start Date (lt)", required=False)
     use_tp1 = forms.BooleanField(label="Use TP 1", required=False)
@@ -24,9 +35,9 @@ class WhatIfForm(forms.Form):
     tp2_amount = forms.FloatField(label="TP 2 Amount", initial=50)
     hours = forms.MultipleChoiceField(
         label="Hours",
-        choices=[(i, i) for i in range(1, 25)],
+        choices=[(i, i) for i in range(0, 24)],
         widget=forms.CheckboxSelectMultiple,
-        initial=[2, 3, 4, 15, 17, 18],
+        initial=[0, 2, 3, 4, 17, 18],
     )
     week_days = forms.MultipleChoiceField(
         label="Week Days",
