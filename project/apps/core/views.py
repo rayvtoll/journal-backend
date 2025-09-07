@@ -1,6 +1,8 @@
 import base64
+from datetime import timedelta
 import io
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mtick
 import seaborn as sns
 
 from django.db.models import QuerySet
@@ -23,6 +25,8 @@ COLOR_LIST = [
     "#F5B14C",
     "#2CBDFF",
 ]
+
+INITIAL_CAPITAL = 10_000
 
 SNS_THEME = dict(
     font="DejaVu Sans",
@@ -179,7 +183,7 @@ class PositionWhatIfView(FormView):
 
         returns = []
         dates = []
-        total_returns = 0
+        total_returns = INITIAL_CAPITAL
         wins = 0
         losses = 0
         sl = form.cleaned_data["sl"]
@@ -202,25 +206,32 @@ class PositionWhatIfView(FormView):
 
             ohlcv_s = OHLCV.objects.filter(
                 datetime__gte=position.start,
-                datetime__lt=position.start + timezone.timedelta(days=15),
+                datetime__lt=position.start + timezone.timedelta(days=28),
             ).order_by("datetime")
             tp1_finished = False
             tp2_finished = False
-            amount = position.amount
-            total_returns -= 0.007  # exchange fees for opening trade
-            start = ohlcv_s.first().open if ohlcv_s.exists() else 0
+            if ohlcv_s.exists():
+                start = ohlcv_s.first().open
+                initial_amount = total_returns / sl / start
+                amount = initial_amount
+                total_returns -= 70 * initial_amount  # exchange fees for opening trade
             for candle in ohlcv_s:
                 if position.side == "LONG":
 
                     # prevent overlapping trades if no_overlap is checked
                     if no_overlap:
-                        if last_long_candle_datetime and candle.datetime < last_long_candle_datetime:
+                        if (
+                            last_long_candle_datetime
+                            and candle.datetime < last_long_candle_datetime
+                        ):
                             break
                         last_long_candle_datetime = candle.datetime
 
                     # SL
                     if candle.low <= start - (start * sl / 100):
-                        total_returns -= 0.007  # exchange fees for closing trade
+                        total_returns -= (
+                            70 * initial_amount
+                        )  # exchange fees for closing trade
                         total_returns -= (start * sl / 100) * amount
                         returns.append(total_returns)
                         dates.append(position.start)
@@ -233,7 +244,7 @@ class PositionWhatIfView(FormView):
                             total_returns += (start * (tp * tp1 / 100) / 100) * (
                                 position.amount * tp1_amount / 100
                             )
-                            amount = amount - (position.amount * tp1_amount / 100)
+                            amount = amount - (initial_amount * tp1_amount / 100)
                             tp1_finished = True
 
                     # TP2
@@ -242,12 +253,14 @@ class PositionWhatIfView(FormView):
                             total_returns += (start * (tp * tp2 / 100) / 100) * (
                                 position.amount * tp2_amount / 100
                             )
-                            amount = amount - (position.amount * tp2_amount / 100)
+                            amount = amount - (initial_amount * tp2_amount / 100)
                             tp2_finished = True
 
                     # final TP
                     if candle.close >= start + (start * tp / 100):
-                        total_returns -= 0.002  # exchange fees for closing trade
+                        total_returns -= (
+                            20 * initial_amount
+                        )  # exchange fees for closing trade
                         total_returns += (start * tp / 100) * amount
                         returns.append(total_returns)
                         dates.append(position.start)
@@ -258,13 +271,18 @@ class PositionWhatIfView(FormView):
 
                     # prevent overlapping trades if no_overlap is checked
                     if no_overlap:
-                        if last_short_candle_datetime and candle.datetime < last_short_candle_datetime:
+                        if (
+                            last_short_candle_datetime
+                            and candle.datetime < last_short_candle_datetime
+                        ):
                             break
                         last_short_candle_datetime = candle.datetime
 
                     # SL
                     if candle.high >= start + (start * sl / 100):
-                        total_returns -= 0.007  # exchange fees for closing trade
+                        total_returns -= (
+                            70 * initial_amount
+                        )  # exchange fees for closing trade
                         total_returns -= (start * sl / 100) * amount
                         returns.append(total_returns)
                         dates.append(position.start)
@@ -277,7 +295,7 @@ class PositionWhatIfView(FormView):
                             total_returns += (start * (tp * tp1 / 100) / 100) * (
                                 position.amount * tp1_amount / 100
                             )
-                            amount = amount - (position.amount * tp1_amount / 100)
+                            amount = amount - (initial_amount * tp1_amount / 100)
                             tp1_finished = True
 
                     # TP2
@@ -286,22 +304,42 @@ class PositionWhatIfView(FormView):
                             total_returns += (start * (tp * tp2 / 100) / 100) * (
                                 position.amount * tp2_amount / 100
                             )
-                            amount = amount - (position.amount * tp2_amount / 100)
+                            amount = amount - (initial_amount * tp2_amount / 100)
                             tp2_finished = True
 
                     # final TP
                     if candle.close <= start - (start * tp / 100):
-                        total_returns -= 0.002  # exchange fees for closing trade
+                        total_returns -= (
+                            20 * initial_amount
+                        )  # exchange fees for closing trade
                         total_returns += (start * tp / 100) * amount
                         returns.append(total_returns)
                         dates.append(position.start)
                         wins += 1
                         break
 
+        # y as
         y_as_data = [i for i in returns]
 
         # x as
         x_as_data = [str(i.date()) for i in dates]
+
+        # Fill in missing dates with previous return value to avoid gaps in the plot
+        date_range = []
+        returns_filled = []
+        current_date = dates[0].date()
+        end_date = dates[-1].date()
+        returns_dict = {d.date(): r for d, r in zip(dates, returns)}
+        last_return = INITIAL_CAPITAL
+        while current_date <= end_date:
+            date_range.append(str(current_date))
+            if current_date in returns_dict:
+                last_return = returns_dict[current_date]
+            returns_filled.append(last_return)
+            current_date += timedelta(days=1)
+
+        x_as_data = date_range
+        y_as_data = returns_filled
 
         # create plot
         fig, ax = plt.subplots()
@@ -313,9 +351,15 @@ class PositionWhatIfView(FormView):
         # plots
         c = COLOR_LIST[-1]
         ax.plot(
-            x_as_data, y_as_data, color=c, label="Returns", linewidth=3, markersize=8
+            x_as_data, y_as_data, color=c, label="Capital", linewidth=2, markersize=8
         )
         ax.fill_between(x_as_data, 0, y_as_data, alpha=0.3, color=c)
+        ax.yaxis.set_major_formatter(mtick.StrMethodFormatter("${x:,.0f}"))
+        ax.set_ylim(bottom=min(y_as_data) if y_as_data else 0)
+
+        # Show only every Nth date label to avoid clutter
+        N = max(1, len(x_as_data) // 20)
+        ax.set_xticks([x_as_data[i] for i in range(0, len(x_as_data), N)])
 
         # add image to context
         img = image_encoder(plotter(plt))

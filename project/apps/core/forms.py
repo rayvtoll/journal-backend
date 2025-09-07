@@ -37,7 +37,7 @@ class WhatIfForm(forms.Form):
         label="Hours",
         choices=[(i, i) for i in range(0, 24)],
         widget=forms.CheckboxSelectMultiple,
-        initial=[0, 2, 3, 4, 17, 18],
+        initial=[0, 1, 2, 3, 17, 18, 19, 20, 23],
     )
     week_days = forms.MultipleChoiceField(
         label="Week Days",

@@ -61,7 +61,7 @@ class PositionFilterSet(django_filters.FilterSet):
             (22, "22:00"),
             (23, "23:00"),
         ],
-        initial=(2, 3, 4, 15, 17, 18),
+        initial=(0, 1, 2, 3, 17, 18, 19, 20, 23),
     )
 
     min_liquidation_amount = django_filters.NumberFilter(
