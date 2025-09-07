@@ -10,8 +10,10 @@ FORM_DAY_CHOICES = [
     (1, "Sunday"),
 ]
 
+
 class WhatIfForm(forms.Form):
     reverse = forms.BooleanField(label="Reverse LONG-SHORT", required=False)
+    compound = forms.BooleanField(label="Compound", initial=True, required=False)
     no_overlap = forms.BooleanField(label="No Overlap", required=False)
     strategy_types = forms.MultipleChoiceField(
         label="Strategy Types",

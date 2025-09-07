@@ -196,6 +196,7 @@ class PositionWhatIfView(FormView):
         tp2_amount = form.cleaned_data["tp2_amount"]
         reverse = form.cleaned_data["reverse"]
         no_overlap = form.cleaned_data["no_overlap"]
+        compound = form.cleaned_data["compound"]
         last_long_candle_datetime = None
         last_short_candle_datetime = None
 
@@ -212,7 +213,9 @@ class PositionWhatIfView(FormView):
             tp2_finished = False
             if ohlcv_s.exists():
                 start = ohlcv_s.first().open
-                initial_amount = total_returns / sl / start
+                initial_amount = (
+                    (total_returns if compound else INITIAL_CAPITAL) / sl / start
+                )
                 amount = initial_amount
                 total_returns -= 70 * initial_amount  # exchange fees for opening trade
             for candle in ohlcv_s:
