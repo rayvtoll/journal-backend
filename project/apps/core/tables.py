@@ -31,3 +31,29 @@ class PositionTable(tables.Table):
                 "class": "bg-light",
             },
         }
+
+
+class WhatIfPositionTable(PositionTable):
+    """What if position table"""
+
+    liquidation_amount = None
+    candles_before_entry = None
+    nr_of_liquidations = None
+    returns = None
+
+    class Meta:
+        model = Position
+        fields = (
+            "id",
+            "start",
+            "side",
+            "what_if_returns",
+            "entry_price",
+            "closing_price",
+        )
+        attrs = {
+            "class": "table table-hover",
+            "th": {
+                "class": "bg-light",
+            },
+        }

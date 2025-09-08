@@ -12,7 +12,8 @@ FORM_DAY_CHOICES = [
 
 
 class WhatIfForm(forms.Form):
-    reverse = forms.BooleanField(label="Reverse LONG-SHORT", required=False)
+    use_reverse = forms.BooleanField(label="Use Reverse Strategy", required=False)
+    reverse_all = forms.BooleanField(label="Reverse LONG-SHORT", required=False)
     compound = forms.BooleanField(label="Compound", initial=True, required=False)
     no_overlap = forms.BooleanField(label="No Overlap", required=False)
     strategy_types = forms.MultipleChoiceField(
@@ -29,6 +30,10 @@ class WhatIfForm(forms.Form):
     tp = forms.FloatField(label="Take Profit (%)", initial=4)
     start_date_gte = forms.DateField(label="Start Date (gte)", required=False)
     start_date_lt = forms.DateField(label="Start Date (lt)", required=False)
+    use_sl_to_entry = forms.BooleanField(
+        label="Use SL to Entry", required=False
+    )
+    sl_to_entry = forms.FloatField(label="SL to Entry (%)", initial=50)
     use_tp1 = forms.BooleanField(label="Use TP 1", required=False)
     tp1 = forms.FloatField(label="TP 1 (%)", initial=50)
     tp1_amount = forms.FloatField(label="TP 1 Amount", initial=20)

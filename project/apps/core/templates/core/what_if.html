@@ -44,5 +44,13 @@
       </form>
     </div>
   </div>
+  {% if table %}
+  <div class="col col-md-6">
+    <div class="card mb-3">
+      <div class="card-header bg-gradient text-bg-secondary">Table</div>
+      <div class="card-body p-0 m-0">{% render_table table %}</div>
+    </div>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}

@@ -14,7 +14,7 @@ from django_filters.views import FilterView
 from project.apps.core.filters import PositionFilterSet
 from project.apps.core.forms import WhatIfForm
 from project.apps.core.models import Position, OHLCV
-from project.apps.core.tables import PositionTable
+from project.apps.core.tables import PositionTable, WhatIfPositionTable
 
 
 COLOR_LIST = [
@@ -161,49 +161,57 @@ class PositionWhatIfView(FormView):
             },
         )
 
-        object_list: QuerySet[Position] = Position.objects.filter(
+        positions: QuerySet[Position] = Position.objects.filter(
             candles_before_entry=1,
         )
         if start_date_gte := form.cleaned_data["start_date_gte"]:
-            object_list = object_list.filter(start__gte=start_date_gte)
+            positions = positions.filter(start__gte=start_date_gte)
         if start_date_lt := form.cleaned_data["start_date_lt"]:
-            object_list = object_list.filter(start__lt=start_date_lt)
+            positions = positions.filter(start__lt=start_date_lt)
         if weekdays := form.cleaned_data["week_days"]:
-            object_list = object_list.filter(start__week_day__in=weekdays)
+            positions = positions.filter(start__week_day__in=weekdays)
         if hours := form.cleaned_data["hours"]:
-            object_list = object_list.filter(start__hour__in=hours)
+            positions = positions.filter(start__hour__in=hours)
         if min_liq := form.cleaned_data.get("min_liquidation_amount"):
-            object_list = object_list.filter(liquidation_amount__gte=min_liq)
+            positions = positions.filter(liquidation_amount__gte=min_liq)
         if max_liq := form.cleaned_data.get("max_liquidation_amount"):
-            object_list = object_list.filter(liquidation_amount__lte=max_liq)
+            positions = positions.filter(liquidation_amount__lte=max_liq)
         if strategy_types := form.cleaned_data["strategy_types"]:
-            object_list = object_list.filter(strategy_type__in=strategy_types)
+            positions = positions.filter(strategy_type__in=strategy_types)
 
-        object_list = object_list.order_by("start")
+        positions = positions.order_by("start")
 
         returns = []
         dates = []
         total_returns = INITIAL_CAPITAL
         wins = 0
         losses = 0
-        sl = form.cleaned_data["sl"]
-        tp = form.cleaned_data["tp"]
-        use_tp1 = form.cleaned_data["use_tp1"]
-        tp1 = form.cleaned_data["tp1"]
-        tp1_amount = form.cleaned_data["tp1_amount"]
-        use_tp2 = form.cleaned_data["use_tp2"]
-        tp2 = form.cleaned_data["tp2"]
-        tp2_amount = form.cleaned_data["tp2_amount"]
-        reverse = form.cleaned_data["reverse"]
-        no_overlap = form.cleaned_data["no_overlap"]
-        compound = form.cleaned_data["compound"]
+        tp: float = form.cleaned_data["tp"]
+        sl_to_entry: float = form.cleaned_data["sl_to_entry"]
+        use_tp1: bool = form.cleaned_data["use_tp1"]
+        tp1: float = form.cleaned_data["tp1"]
+        tp1_amount: float = form.cleaned_data["tp1_amount"]
+        use_tp2: bool = form.cleaned_data["use_tp2"]
+        tp2: float = form.cleaned_data["tp2"]
+        tp2_amount: float = form.cleaned_data["tp2_amount"]
+        use_reverse: bool = form.cleaned_data["use_reverse"]
+        reverse_all: bool = form.cleaned_data["reverse_all"]
+        no_overlap: bool = form.cleaned_data["no_overlap"]
+        compound: bool = form.cleaned_data["compound"]
         last_long_candle_datetime = None
         last_short_candle_datetime = None
 
-        for position in object_list:
-            if reverse and position.strategy_type != "reversed":
-                # do NOT save this to the database, just for the what-if analysis
-                position.side = "SHORT" if position.side == "LONG" else "LONG"
+        object_list: list[Position] = []
+        for position in positions:
+            position.what_if_returns = 0
+            sl: bool = form.cleaned_data["sl"]
+            use_sl_to_entry: bool = form.cleaned_data["use_sl_to_entry"]
+            if use_reverse:
+                if reverse_all and position.strategy_type != "reversed":
+                    position.side = "SHORT" if position.side == "LONG" else "LONG"
+                
+                elif not reverse_all and position.strategy_type == "reversed":
+                    position.side = "SHORT" if position.side == "LONG" else "LONG"
 
             ohlcv_s = OHLCV.objects.filter(
                 datetime__gte=position.start,
@@ -212,12 +220,16 @@ class PositionWhatIfView(FormView):
             tp1_finished = False
             tp2_finished = False
             if ohlcv_s.exists():
-                start = ohlcv_s.first().open
-                initial_amount = (
-                    (total_returns if compound else INITIAL_CAPITAL) / sl / start
+                position.entry_price = ohlcv_s.first().open
+                position.amount = (
+                    (total_returns if compound else INITIAL_CAPITAL)
+                    / sl
+                    / position.entry_price
                 )
-                amount = initial_amount
-                total_returns -= 70 * initial_amount  # exchange fees for opening trade
+                amount = position.amount
+                fees_for_opening = 100 * position.amount
+                total_returns -= fees_for_opening
+                position.what_if_returns -= fees_for_opening
             for candle in ohlcv_s:
                 if position.side == "LONG":
 
@@ -231,40 +243,71 @@ class PositionWhatIfView(FormView):
                         last_long_candle_datetime = candle.datetime
 
                     # SL
-                    if candle.low <= start - (start * sl / 100):
+                    if candle.low <= position.entry_price - (
+                        position.entry_price * sl / 100
+                    ):
                         total_returns -= (
-                            70 * initial_amount
+                            100 * position.amount
                         )  # exchange fees for closing trade
-                        total_returns -= (start * sl / 100) * amount
+                        position.closing_price = round(
+                            position.entry_price - (position.entry_price * sl / 100), 1
+                        )
+                        loss = (position.entry_price * sl / 100) * amount
+                        total_returns -= loss
+                        position.what_if_returns -= loss
+                        position.what_if_returns = (
+                            f"$ {round(position.what_if_returns, 2):,}"
+                        )
+                        object_list.insert(0, position)
                         returns.append(total_returns)
                         dates.append(position.start)
                         losses += 1
                         break
 
+                    # SL to entry
+                    if use_sl_to_entry and candle.high > position.entry_price + (
+                        position.entry_price * (sl_to_entry / 100 * tp / 100)
+                    ):
+                        sl = -sl
+                        use_sl_to_entry = False  # only use once
+
                     # TP1
                     if use_tp1 and not tp1_finished:
-                        if candle.close >= start + (start * (tp1 / 100 * tp / 100)):
-                            total_returns += (start * (tp * tp1 / 100) / 100) * (
-                                position.amount * tp1_amount / 100
-                            )
-                            amount = amount - (initial_amount * tp1_amount / 100)
+                        if candle.close >= position.entry_price + (
+                            position.entry_price * (tp1 / 100 * tp / 100)
+                        ):
+                            total_returns += (
+                                position.entry_price * (tp * tp1 / 100) / 100
+                            ) * (position.amount * tp1_amount / 100)
+                            amount = amount - (position.amount * tp1_amount / 100)
                             tp1_finished = True
 
                     # TP2
                     if use_tp2 and not tp2_finished:
-                        if candle.close >= start + (start * (tp2 / 100 * tp / 100)):
-                            total_returns += (start * (tp * tp2 / 100) / 100) * (
-                                position.amount * tp2_amount / 100
-                            )
-                            amount = amount - (initial_amount * tp2_amount / 100)
+                        if candle.close >= position.entry_price + (
+                            position.entry_price * (tp2 / 100 * tp / 100)
+                        ):
+                            total_returns += (
+                                position.entry_price * (tp * tp2 / 100) / 100
+                            ) * (position.amount * tp2_amount / 100)
+                            amount = amount - (position.amount * tp2_amount / 100)
                             tp2_finished = True
 
                     # final TP
-                    if candle.close >= start + (start * tp / 100):
-                        total_returns -= (
-                            20 * initial_amount
-                        )  # exchange fees for closing trade
-                        total_returns += (start * tp / 100) * amount
+                    if candle.close >= position.entry_price + (
+                        position.entry_price * tp / 100
+                    ):
+                        fees_for_closing = 30 * position.amount
+                        total_returns -= fees_for_closing
+                        position.what_if_returns -= fees_for_closing
+                        position.closing_price = round(
+                            position.entry_price + (position.entry_price * tp / 100), 1
+                        )
+                        local_win = (position.entry_price * tp / 100) * amount
+                        total_returns += local_win
+                        position.what_if_returns += local_win
+                        position.what_if_returns = f"$ {round(position.what_if_returns, 2):,}"
+                        object_list.insert(0, position)
                         returns.append(total_returns)
                         dates.append(position.start)
                         wins += 1
@@ -282,11 +325,21 @@ class PositionWhatIfView(FormView):
                         last_short_candle_datetime = candle.datetime
 
                     # SL
-                    if candle.high >= start + (start * sl / 100):
-                        total_returns -= (
-                            70 * initial_amount
-                        )  # exchange fees for closing trade
-                        total_returns -= (start * sl / 100) * amount
+                    if candle.high >= position.entry_price + (
+                        position.entry_price * sl / 100
+                    ):
+                        fees_for_closing = 30 * position.amount
+                        total_returns -= fees_for_closing
+                        position.what_if_returns -= fees_for_closing
+                        position.closing_price = round(
+                            position.entry_price - (position.entry_price * sl / 100), 1
+                        )
+                        loss = (position.entry_price * sl / 100) * amount
+                        total_returns -= loss
+                        position.what_if_returns -= loss
+                        position.what_if_returns = f"$ {round(position.what_if_returns, 2):,}"
+                        position.liquidation_amount = loss
+                        object_list.insert(0, position)
                         returns.append(total_returns)
                         dates.append(position.start)
                         losses += 1
@@ -294,28 +347,41 @@ class PositionWhatIfView(FormView):
 
                     # TP1
                     if use_tp1 and not tp1_finished:
-                        if candle.close <= start - (start * (tp1 / 100 * tp / 100)):
-                            total_returns += (start * (tp * tp1 / 100) / 100) * (
-                                position.amount * tp1_amount / 100
-                            )
-                            amount = amount - (initial_amount * tp1_amount / 100)
+                        if candle.close <= position.entry_price - (
+                            position.entry_price * (tp1 / 100 * tp / 100)
+                        ):
+                            total_returns += (
+                                position.entry_price * (tp * tp1 / 100) / 100
+                            ) * (position.amount * tp1_amount / 100)
+                            amount = amount - (position.amount * tp1_amount / 100)
                             tp1_finished = True
 
                     # TP2
                     if use_tp2 and not tp2_finished:
-                        if candle.close <= start - (start * (tp2 / 100 * tp / 100)):
-                            total_returns += (start * (tp * tp2 / 100) / 100) * (
-                                position.amount * tp2_amount / 100
-                            )
-                            amount = amount - (initial_amount * tp2_amount / 100)
+                        if candle.close <= position.entry_price - (
+                            position.entry_price * (tp2 / 100 * tp / 100)
+                        ):
+                            total_returns += (
+                                position.entry_price * (tp * tp2 / 100) / 100
+                            ) * (position.amount * tp2_amount / 100)
+                            amount = amount - (position.amount * tp2_amount / 100)
                             tp2_finished = True
 
                     # final TP
-                    if candle.close <= start - (start * tp / 100):
-                        total_returns -= (
-                            20 * initial_amount
-                        )  # exchange fees for closing trade
-                        total_returns += (start * tp / 100) * amount
+                    if candle.close <= position.entry_price - (
+                        position.entry_price * tp / 100
+                    ):
+                        fees_for_closing = 30 * position.amount
+                        total_returns -= fees_for_closing
+                        position.what_if_returns -= fees_for_closing
+                        position.closing_price = round(
+                            position.entry_price + (position.entry_price * tp / 100), 1
+                        )
+                        local_wins = (position.entry_price * tp / 100) * amount
+                        total_returns += local_wins
+                        position.what_if_returns += local_wins
+                        position.what_if_returns = f"$ {round(position.what_if_returns, 2):,}"
+                        object_list.insert(0, position)
                         returns.append(total_returns)
                         dates.append(position.start)
                         wins += 1
@@ -375,5 +441,6 @@ class PositionWhatIfView(FormView):
                 wins=wins,
                 losses=losses,
                 nr_of_trades=wins + losses,
+                table=WhatIfPositionTable(object_list),
             )
         )
