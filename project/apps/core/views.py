@@ -136,6 +136,7 @@ class PositionListView(SingleTableMixin, FilterView):
 
         # add image to context
         context["img"] = image_encoder(plotter(plt))
+        context["title"] = "Position overview"
 
         return context | self.totals
 
@@ -246,9 +247,9 @@ class PositionWhatIfView(FormView):
                     if candle.low <= position.entry_price - (
                         position.entry_price * sl / 100
                     ):
-                        total_returns -= (
-                            100 * position.amount
-                        )  # exchange fees for closing trade
+                        fees_for_closing = 100 * position.amount
+                        total_returns -= fees_for_closing
+                        position.what_if_returns -= fees_for_closing
                         position.closing_price = round(
                             position.entry_price - (position.entry_price * sl / 100), 1
                         )
@@ -328,11 +329,11 @@ class PositionWhatIfView(FormView):
                     if candle.high >= position.entry_price + (
                         position.entry_price * sl / 100
                     ):
-                        fees_for_closing = 30 * position.amount
+                        fees_for_closing = 100 * position.amount
                         total_returns -= fees_for_closing
                         position.what_if_returns -= fees_for_closing
                         position.closing_price = round(
-                            position.entry_price - (position.entry_price * sl / 100), 1
+                            position.entry_price + (position.entry_price * sl / 100), 1
                         )
                         loss = (position.entry_price * sl / 100) * amount
                         total_returns -= loss
@@ -344,6 +345,13 @@ class PositionWhatIfView(FormView):
                         dates.append(position.start)
                         losses += 1
                         break
+
+                    # SL to entry
+                    if use_sl_to_entry and candle.low < position.entry_price - (
+                        position.entry_price * (sl_to_entry / 100 * tp / 100)
+                    ):
+                        sl = -sl
+                        use_sl_to_entry = False  # only use once
 
                     # TP1
                     if use_tp1 and not tp1_finished:
@@ -442,5 +450,6 @@ class PositionWhatIfView(FormView):
                 losses=losses,
                 nr_of_trades=wins + losses,
                 table=WhatIfPositionTable(object_list),
+                title="What if analysis",
             )
         )
