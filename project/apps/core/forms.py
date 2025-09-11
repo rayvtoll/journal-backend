@@ -30,6 +30,10 @@ class WhatIfForm(forms.Form):
     tp = forms.FloatField(label="Take Profit (%)", initial=4)
     start_date_gte = forms.DateField(label="Start Date (gte)", required=False)
     start_date_lt = forms.DateField(label="Start Date (lt)", required=False)
+    use_trailing_sl = forms.BooleanField(
+        label="Use Trailing SL", required=False
+    )
+    trailing_sl = forms.FloatField(label="Trailing SL (%)", initial=1)
     use_sl_to_entry = forms.BooleanField(
         label="Use SL to Entry", required=False
     )

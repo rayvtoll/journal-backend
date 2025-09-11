@@ -198,6 +198,8 @@ class PositionWhatIfView(FormView):
         use_reverse: bool = form.cleaned_data["use_reverse"]
         reverse_all: bool = form.cleaned_data["reverse_all"]
         no_overlap: bool = form.cleaned_data["no_overlap"]
+        use_trailing_sl: bool = form.cleaned_data["use_trailing_sl"]
+        trailing_sl: float = form.cleaned_data["trailing_sl"]
         compound: bool = form.cleaned_data["compound"]
         last_long_candle_datetime = None
         last_short_candle_datetime = None
@@ -210,7 +212,7 @@ class PositionWhatIfView(FormView):
             if use_reverse:
                 if reverse_all and position.strategy_type != "reversed":
                     position.side = "SHORT" if position.side == "LONG" else "LONG"
-                
+
                 elif not reverse_all and position.strategy_type == "reversed":
                     position.side = "SHORT" if position.side == "LONG" else "LONG"
 
@@ -231,6 +233,12 @@ class PositionWhatIfView(FormView):
                 fees_for_opening = 100 * position.amount
                 total_returns -= fees_for_opening
                 position.what_if_returns -= fees_for_opening
+                if use_trailing_sl:
+                    position_sl_price = (
+                        position.entry_price * (1 - trailing_sl / 100)
+                        if position.side == "LONG"
+                        else position.entry_price * (1 + trailing_sl / 100)
+                    )
             for candle in ohlcv_s:
                 if position.side == "LONG":
 
@@ -243,11 +251,38 @@ class PositionWhatIfView(FormView):
                             break
                         last_long_candle_datetime = candle.datetime
 
+                    # trailing SL
+                    if use_trailing_sl:
+                        position_sl_price = max(
+                            position_sl_price,
+                            position.entry_price - (position.entry_price * sl / 100),
+                            candle.high - (candle.high * trailing_sl / 100),
+                        )
+
+                        if candle.low <= position_sl_price:
+                            fees_for_closing = 85 * position.amount
+                            total_returns -= fees_for_closing
+                            position.what_if_returns -= fees_for_closing
+                            position.closing_price = round(position_sl_price, 1)
+                            loss_or_win = (
+                                position.entry_price - position_sl_price
+                            ) * amount
+                            total_returns -= loss_or_win
+                            position.what_if_returns -= loss_or_win
+                            position.what_if_returns = (
+                                f"$ {round(position.what_if_returns, 2):,}"
+                            )
+                            object_list.insert(0, position)
+                            returns.append(total_returns)
+                            dates.append(position.start)
+                            losses += 1
+                            break
+
                     # SL
                     if candle.low <= position.entry_price - (
                         position.entry_price * sl / 100
                     ):
-                        fees_for_closing = 100 * position.amount
+                        fees_for_closing = 85 * position.amount
                         total_returns -= fees_for_closing
                         position.what_if_returns -= fees_for_closing
                         position.closing_price = round(
@@ -307,7 +342,9 @@ class PositionWhatIfView(FormView):
                         local_win = (position.entry_price * tp / 100) * amount
                         total_returns += local_win
                         position.what_if_returns += local_win
-                        position.what_if_returns = f"$ {round(position.what_if_returns, 2):,}"
+                        position.what_if_returns = (
+                            f"$ {round(position.what_if_returns, 2):,}"
+                        )
                         object_list.insert(0, position)
                         returns.append(total_returns)
                         dates.append(position.start)
@@ -325,11 +362,39 @@ class PositionWhatIfView(FormView):
                             break
                         last_short_candle_datetime = candle.datetime
 
+                    # trailing SL
+                    if use_trailing_sl:
+                        position_sl_price = min(
+                            position_sl_price,
+                            position.entry_price
+                            + (position.entry_price * sl / 100),
+                            candle.low + (candle.low * trailing_sl / 100),
+                        )
+
+                        if candle.high >= position_sl_price:
+                            fees_for_closing = 85 * position.amount
+                            total_returns -= fees_for_closing
+                            position.what_if_returns -= fees_for_closing
+                            position.closing_price = round(position_sl_price, 1)
+                            loss_or_win = (
+                                position_sl_price - position.entry_price
+                            ) * amount
+                            total_returns -= loss_or_win
+                            position.what_if_returns -= loss_or_win
+                            position.what_if_returns = (
+                                f"$ {round(position.what_if_returns, 2):,}"
+                            )
+                            object_list.insert(0, position)
+                            returns.append(total_returns)
+                            dates.append(position.start)
+                            losses += 1
+                            break
+
                     # SL
                     if candle.high >= position.entry_price + (
                         position.entry_price * sl / 100
                     ):
-                        fees_for_closing = 100 * position.amount
+                        fees_for_closing = 85 * position.amount
                         total_returns -= fees_for_closing
                         position.what_if_returns -= fees_for_closing
                         position.closing_price = round(
@@ -338,7 +403,9 @@ class PositionWhatIfView(FormView):
                         loss = (position.entry_price * sl / 100) * amount
                         total_returns -= loss
                         position.what_if_returns -= loss
-                        position.what_if_returns = f"$ {round(position.what_if_returns, 2):,}"
+                        position.what_if_returns = (
+                            f"$ {round(position.what_if_returns, 2):,}"
+                        )
                         position.liquidation_amount = loss
                         object_list.insert(0, position)
                         returns.append(total_returns)
@@ -388,7 +455,9 @@ class PositionWhatIfView(FormView):
                         local_wins = (position.entry_price * tp / 100) * amount
                         total_returns += local_wins
                         position.what_if_returns += local_wins
-                        position.what_if_returns = f"$ {round(position.what_if_returns, 2):,}"
+                        position.what_if_returns = (
+                            f"$ {round(position.what_if_returns, 2):,}"
+                        )
                         object_list.insert(0, position)
                         returns.append(total_returns)
                         dates.append(position.start)
