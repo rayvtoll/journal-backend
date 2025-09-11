@@ -473,8 +473,8 @@ class PositionWhatIfView(FormView):
         # Fill in missing dates with previous return value to avoid gaps in the plot
         date_range = []
         returns_filled = []
-        current_date = dates[0].date()
-        end_date = dates[-1].date()
+        current_date = dates[0].date() if dates else timezone.now().date()
+        end_date = dates[-1].date() if dates else timezone.now().date()
         returns_dict = {d.date(): r for d, r in zip(dates, returns)}
         last_return = INITIAL_CAPITAL
         while current_date <= end_date:
