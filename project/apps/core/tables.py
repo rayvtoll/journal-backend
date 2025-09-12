@@ -57,3 +57,61 @@ class WhatIfPositionTable(PositionTable):
                 "class": "bg-light",
             },
         }
+
+
+class WhatIfPerHourPositionTable(tables.Table):
+    """What if position table"""
+
+    hour = tables.Column(
+        verbose_name="Hour of Day",
+        attrs={
+            "td": {
+                "class": lambda record: (
+                    "text-success"
+                    if (
+                        record["live_nr_of_r_s"] > 0 or record["reversed_nr_of_r_s"] > 0
+                    )
+                    else ""
+                )
+            }
+        },
+        orderable=False,
+    )
+    live_nr_of_trades = tables.Column(verbose_name="Live # Trades", orderable=False)
+    live_ratio = tables.Column(verbose_name="Live Win Ratio", orderable=False)
+    live_nr_of_r_s = tables.Column(
+        verbose_name="Live # R's",
+        attrs={
+            "td": {
+                "class": lambda record: (
+                    "text-success" if record["live_nr_of_r_s"] > 0 else "text-danger"
+                )
+            }
+        },
+        orderable=False,
+    )
+    reversed_nr_of_trades = tables.Column(
+        verbose_name="Reversed # Trades", orderable=False
+    )
+    reversed_ratio = tables.Column(verbose_name="Reversed Win Ratio", orderable=False)
+    reversed_nr_of_r_s = tables.Column(
+        verbose_name="Reversed # R's",
+        attrs={
+            "td": {
+                "class": lambda record: (
+                    "text-success"
+                    if record["reversed_nr_of_r_s"] > 0
+                    else "text-danger"
+                )
+            }
+        },
+        orderable=False,
+    )
+
+    class Meta:
+        attrs = {
+            "class": "table table-hover",
+            "th": {
+                "class": "bg-light",
+            },
+        }

@@ -18,14 +18,40 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark bg-gradient mb-4">
       <div class="container-fluid">
         <a class="navbar-brand" href="/">Position List</a>
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbarSupportedContent"
+          aria-controls="navbarSupportedContent"
+          aria-expanded="false"
+          aria-label="Toggle navigation"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
         <div class="collapse navbar-collapse" id="navbarSupportedContent">
           <ul class="navbar-nav me-auto mb-2 mb-lg-0">
             <li class="nav-item">
-              <a class="nav-link {% if request.resolver_match.url_name == 'positions_read_only' %}active{% endif %}" aria-current="page" href="/">Home</a>
+              <a
+                class="nav-link {% if request.resolver_match.url_name == 'positions_read_only' %}active{% endif %}"
+                aria-current="page"
+                href="/"
+                >Home</a
+              >
             </li>
             <li class="nav-item">
-              <a class="nav-link {% if request.resolver_match.url_name == 'positions_what_if' %}active{% endif %}" href="/what-if/">What If</a>
+              <a
+                class="nav-link {% if request.resolver_match.url_name == 'positions_what_if' %}active{% endif %}"
+                href="/what-if/"
+                >What If</a
+              >
             </li>
+            <li class="nav-item">
+              <a
+                class="nav-link {% if request.resolver_match.url_name == 'positions_what_if_per_hour' %}active{% endif %}"
+                href="/what-if-per-hour/"
+                >What If Per Hour</a
+              >
           </ul>
         </div>
         <a class="btn btn-outline-light" href="/admin/">Admin</a>

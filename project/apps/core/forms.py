@@ -12,7 +12,9 @@ FORM_DAY_CHOICES = [
 
 
 class WhatIfForm(forms.Form):
-    use_reverse = forms.BooleanField(label="Use Reverse Strategy", required=False)
+    use_reverse = forms.BooleanField(
+        label="Use Reverse Strategy", required=False, initial=True
+    )
     reverse_all = forms.BooleanField(label="Reverse LONG-SHORT", required=False)
     compound = forms.BooleanField(label="Compound", initial=True, required=False)
     no_overlap = forms.BooleanField(label="No Overlap", required=False)
@@ -23,20 +25,16 @@ class WhatIfForm(forms.Form):
             ("reversed", "Reversed"),
             ("journaling", "Journaling"),
         ],
+        required=False,
         widget=forms.CheckboxSelectMultiple,
-        initial=["live", "journaling"],
     )
-    sl = forms.FloatField(label="Stop Loss (%)", initial=0.475)
+    sl = forms.FloatField(label="Stop Loss (%)", initial=0.8)
     tp = forms.FloatField(label="Take Profit (%)", initial=4)
     start_date_gte = forms.DateField(label="Start Date (gte)", required=False)
     start_date_lt = forms.DateField(label="Start Date (lt)", required=False)
-    use_trailing_sl = forms.BooleanField(
-        label="Use Trailing SL", required=False
-    )
+    use_trailing_sl = forms.BooleanField(label="Use Trailing SL", required=False)
     trailing_sl = forms.FloatField(label="Trailing SL (%)", initial=1)
-    use_sl_to_entry = forms.BooleanField(
-        label="Use SL to Entry", required=False
-    )
+    use_sl_to_entry = forms.BooleanField(label="Use SL to Entry", required=False)
     sl_to_entry = forms.FloatField(label="SL to Entry (%)", initial=50)
     use_tp1 = forms.BooleanField(label="Use TP 1", required=False)
     tp1 = forms.FloatField(label="TP 1 (%)", initial=50)
@@ -48,7 +46,7 @@ class WhatIfForm(forms.Form):
         label="Hours",
         choices=[(i, i) for i in range(0, 24)],
         widget=forms.CheckboxSelectMultiple,
-        initial=[0, 1, 2, 3, 17, 18, 19, 20, 23],
+        initial=[0, 1, 2, 3, 4, 17, 18, 19, 20, 23],
     )
     week_days = forms.MultipleChoiceField(
         label="Week Days",
@@ -62,3 +60,11 @@ class WhatIfForm(forms.Form):
     max_liquidation_amount = forms.IntegerField(
         label="Max Liquidation Amount", required=False
     )
+
+
+class WhatIfPerHourForm(WhatIfForm):
+    week_days = None
+    hours = None
+    use_reverse = None
+    reverse_all = None
+    strategy_types = None

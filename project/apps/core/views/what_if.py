@@ -1,6 +1,4 @@
-import base64
 from datetime import timedelta
-import io
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
 import seaborn as sns
@@ -8,137 +6,13 @@ import seaborn as sns
 from django.db.models import QuerySet
 from django.utils import timezone
 from django.views.generic.edit import FormView
-from django_tables2 import SingleTableMixin
-from django_filters.views import FilterView
 
 from project.apps.core.filters import PositionFilterSet
 from project.apps.core.forms import WhatIfForm
 from project.apps.core.models import Position, OHLCV
-from project.apps.core.tables import PositionTable, WhatIfPositionTable
+from project.apps.core.tables import WhatIfPositionTable
 
-
-COLOR_LIST = [
-    "#47DBCD",
-    "#F3A0F2",
-    "#9D2EC5",
-    "#661D98",
-    "#F5B14C",
-    "#2CBDFF",
-]
-
-INITIAL_CAPITAL = 10_000
-
-SNS_THEME = dict(
-    font="DejaVu Sans",
-    rc={
-        "axes.axisbelow": False,
-        "axes.edgecolor": "lightgrey",
-        "axes.facecolor": "None",
-        "axes.grid": False,
-        "axes.labelcolor": "dimgrey",
-        "axes.spines.right": False,
-        "axes.spines.top": False,
-        "figure.facecolor": "white",
-        "lines.solid_capstyle": "round",
-        "patch.edgecolor": "w",
-        "patch.force_edgecolor": True,
-        "text.color": "dimgrey",
-        "xtick.bottom": False,
-        "xtick.color": "dimgrey",
-        "xtick.direction": "out",
-        "xtick.top": False,
-        "ytick.color": "dimgrey",
-        "ytick.direction": "out",
-        "ytick.left": False,
-        "ytick.right": False,
-    },
-)
-
-
-def plotter(plt: plt, legend: bool = True) -> io.BytesIO:
-    """functie die een plot als een plaatje teruggeeft"""
-
-    plt.grid(visible=True, which="major", axis="y", color="lightgrey", linestyle="--")
-    if legend:
-        plt.legend(frameon=False)
-    s = io.BytesIO()
-    plt.savefig(s, format="png", bbox_inches="tight")
-    plt.close()
-    return s
-
-
-def image_encoder(s: io.BytesIO) -> str:
-    """functie die plaatje als base64 verpakt zodat deze niet op de server hoeft te worden opgeslagen"""
-
-    return base64.b64encode(s.getvalue()).decode("utf-8").replace("\n", "")
-
-
-class PositionListView(SingleTableMixin, FilterView):
-    """List view for positions with table and filter functionality."""
-
-    template_name = "core/position_list.html"
-    model = Position
-    table_class = PositionTable
-    filterset_class = PositionFilterSet
-
-    def get_queryset(self):
-        return super().get_queryset().filter(candles_before_entry=1).order_by("-start")
-
-    @property
-    def totals(self) -> dict:
-        """Calculate totals for the positions."""
-
-        return dict(
-            len_positions=len(self.object_list),
-            total_returns=sum(position.returns for position in self.object_list),
-        )
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-
-        plt.rcParams["axes.prop_cycle"] = plt.cycler(color=COLOR_LIST)
-        sns.set_theme(**SNS_THEME)
-        sns.set_context(
-            "notebook",
-            rc={
-                "font.size": 6,
-                "axes.titlesize": 12,
-                "axes.labelsize": 10,
-            },
-        )
-
-        object_list: QuerySet[Position] = self.object_list.order_by("start")
-
-        # x as
-        x_as_data = [str(i) for i in range(len(object_list))]
-
-        # y as
-        returns = []
-        total_returns = 0
-        for position in object_list:
-            total_returns += position.returns
-            returns.append(total_returns)
-        y_as_data = [i for i in returns]
-
-        # create plot
-        fig, ax = plt.subplots()
-        fig.set_size_inches(9, 4)
-
-        # hide x-axis labels
-        ax.get_xaxis().set_visible(False)
-
-        # plots
-        c = COLOR_LIST[-1]
-        ax.plot(
-            x_as_data, y_as_data, color=c, label="Returns", linewidth=3, markersize=8
-        )
-        ax.fill_between(x_as_data, 0, y_as_data, alpha=0.3, color=c)
-
-        # add image to context
-        context["img"] = image_encoder(plotter(plt))
-        context["title"] = "Position overview"
-
-        return context | self.totals
+from .helpers import COLOR_LIST, INITIAL_CAPITAL, SNS_THEME, image_encoder, plotter
 
 
 class PositionWhatIfView(FormView):
@@ -146,7 +20,7 @@ class PositionWhatIfView(FormView):
 
     template_name = "core/what_if.html"
     model = Position
-    table_class = PositionTable
+    table_class = WhatIfPositionTable
     filterset_class = PositionFilterSet
     form_class = WhatIfForm
 
@@ -162,7 +36,7 @@ class PositionWhatIfView(FormView):
             },
         )
 
-        positions: QuerySet[Position] = Position.objects.filter(
+        positions: QuerySet[Position] = self.model.objects.filter(
             candles_before_entry=1,
         )
         if start_date_gte := form.cleaned_data["start_date_gte"]:
@@ -207,7 +81,7 @@ class PositionWhatIfView(FormView):
         object_list: list[Position] = []
         for position in positions:
             position.what_if_returns = 0
-            sl: bool = form.cleaned_data["sl"]
+            sl: float = form.cleaned_data["sl"]
             use_sl_to_entry: bool = form.cleaned_data["use_sl_to_entry"]
             if use_reverse:
                 if reverse_all and position.strategy_type != "reversed":
@@ -517,7 +391,7 @@ class PositionWhatIfView(FormView):
                 wins=wins,
                 losses=losses,
                 nr_of_trades=wins + losses,
-                table=WhatIfPositionTable(object_list),
+                table=self.table_class(object_list),
                 title="What if analysis",
                 risk_reward=(total_returns / INITIAL_CAPITAL) if total_returns else 1,
             )
