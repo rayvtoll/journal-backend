@@ -366,8 +366,7 @@ class PositionWhatIfView(FormView):
                     if use_trailing_sl:
                         position_sl_price = min(
                             position_sl_price,
-                            position.entry_price
-                            + (position.entry_price * sl / 100),
+                            position.entry_price + (position.entry_price * sl / 100),
                             candle.low + (candle.low * trailing_sl / 100),
                         )
 
@@ -520,5 +519,6 @@ class PositionWhatIfView(FormView):
                 nr_of_trades=wins + losses,
                 table=WhatIfPositionTable(object_list),
                 title="What if analysis",
+                risk_reward=(total_returns / INITIAL_CAPITAL) if total_returns else 1,
             )
         )
