@@ -42,17 +42,20 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         candles = run(get_closing_data())
         for candle in candles:
-            ohlcv, _ = OHLCV.objects.update_or_create(
-                defaults=dict(
-                    symbol="BTC/USDT:USDT",
-                    timeframe="5m",
-                    datetime=timezone.datetime.fromtimestamp(candle[0] / 1000),
-                ),
-                open=candle[1],
-                high=candle[2],
-                low=candle[3],
-                close=candle[4],
-                volume=candle[5],
-            )
-            print(ohlcv)
+            try:
+                ohlcv, _ = OHLCV.objects.update_or_create(
+                    defaults=dict(
+                        symbol="BTC/USDT:USDT",
+                        timeframe="5m",
+                        datetime=timezone.datetime.fromtimestamp(candle[0] / 1000),
+                    ),
+                    open=candle[1],
+                    high=candle[2],
+                    low=candle[3],
+                    close=candle[4],
+                    volume=candle[5],
+                )
+                print(ohlcv)
+            except Exception as e:
+                print(f"Error processing candle {candle}: {e}")
         run(EXCHANGE.close())
