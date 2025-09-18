@@ -60,10 +60,12 @@ class WhatIfForm(forms.Form):
     max_liquidation_amount = forms.IntegerField(
         label="Max Liquidation Amount", required=False
     )
+    percentage_per_trade = forms.FloatField(
+        label="Percentage per Trade (%)", initial=1, required=False
+    )
 
 
 class WhatIfPerHourForm(WhatIfForm):
-    week_days = None
     hours = None
     use_reverse = None
     reverse_all = None

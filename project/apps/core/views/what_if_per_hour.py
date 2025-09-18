@@ -55,6 +55,8 @@ class PositionWhatIfPerHourView(FormView):
                     positions = positions.filter(liquidation_amount__gte=min_liq)
                 if max_liq := form.cleaned_data.get("max_liquidation_amount"):
                     positions = positions.filter(liquidation_amount__lte=max_liq)
+                if weekdays := form.cleaned_data["week_days"]:
+                    positions = positions.filter(start__week_day__in=weekdays)
 
                 positions = positions.order_by("start")
 
@@ -75,6 +77,7 @@ class PositionWhatIfPerHourView(FormView):
                 compound: bool = form.cleaned_data["compound"]
                 last_long_candle_datetime = None
                 last_short_candle_datetime = None
+                percentage_per_trade: float = form.cleaned_data["percentage_per_trade"]
 
                 for position in positions:
                     position.what_if_returns = 0
@@ -103,6 +106,7 @@ class PositionWhatIfPerHourView(FormView):
                             (total_returns if compound else INITIAL_CAPITAL)
                             / sl
                             / position.entry_price
+                            * percentage_per_trade
                         )
                         amount = position.amount
                         fees_for_opening = 100 * position.amount

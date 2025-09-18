@@ -42,13 +42,14 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         candles = run(get_closing_data())
         for candle in candles:
+            candle_defaults = {
+                "symbol": "BTC/USDT:USDT",
+                "timeframe": "5m",
+                "datetime": timezone.datetime.fromtimestamp(candle[0] / 1000),
+            }
             try:
                 ohlcv, _ = OHLCV.objects.update_or_create(
-                    defaults=dict(
-                        symbol="BTC/USDT:USDT",
-                        timeframe="5m",
-                        datetime=timezone.datetime.fromtimestamp(candle[0] / 1000),
-                    ),
+                    defaults=candle_defaults,
                     open=candle[1],
                     high=candle[2],
                     low=candle[3],
@@ -57,5 +58,16 @@ class Command(BaseCommand):
                 )
                 print(ohlcv)
             except Exception as e:
-                print(f"Error processing candle {candle}: {e}")
+                ohlcv_s = OHLCV.objects.filter(**candle_defaults)
+                if not ohlcv_s.exists():
+                    print(f"Failed to create OHLCV: {e}")
+                    continue
+                ohlcv = ohlcv_s.first()
+                ohlcv.open = candle[1]
+                ohlcv.high = candle[2]
+                ohlcv.low = candle[3]
+                ohlcv.close = candle[4]
+                ohlcv.volume = candle[5]
+                ohlcv.save()
+                print(f"Updated: {ohlcv} due to {e}")
         run(EXCHANGE.close())

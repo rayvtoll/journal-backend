@@ -77,6 +77,7 @@ class PositionWhatIfView(FormView):
         compound: bool = form.cleaned_data["compound"]
         last_long_candle_datetime = None
         last_short_candle_datetime = None
+        percentage_per_trade: float = form.cleaned_data["percentage_per_trade"]
 
         object_list: list[Position] = []
         for position in positions:
@@ -102,6 +103,7 @@ class PositionWhatIfView(FormView):
                     (total_returns if compound else INITIAL_CAPITAL)
                     / sl
                     / position.entry_price
+                    * percentage_per_trade
                 )
                 amount = position.amount
                 fees_for_opening = 100 * position.amount
@@ -393,6 +395,10 @@ class PositionWhatIfView(FormView):
                 nr_of_trades=wins + losses,
                 table=self.table_class(object_list),
                 title="What if analysis",
-                risk_reward=(total_returns / INITIAL_CAPITAL) if total_returns else 1,
+                risk_reward=(
+                    ((total_returns / INITIAL_CAPITAL) ** (1 / 50) - 1) * 100
+                    if total_returns
+                    else 1
+                ),
             )
         )
