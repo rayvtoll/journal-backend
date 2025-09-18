@@ -396,7 +396,14 @@ class PositionWhatIfView(FormView):
                 table=self.table_class(object_list),
                 title="What if analysis",
                 risk_reward=(
-                    ((total_returns / INITIAL_CAPITAL) ** (1 / 50) - 1) * 100
+                    round(
+                        (
+                            ((total_returns / INITIAL_CAPITAL) ** (1 / (wins + losses)))
+                            - 1
+                        )
+                        * 100,
+                        2,
+                    )
                     if total_returns
                     else 1
                 ),
