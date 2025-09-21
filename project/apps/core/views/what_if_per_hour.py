@@ -51,10 +51,6 @@ class PositionWhatIfPerHourView(FormView):
                     positions = positions.filter(start__gte=start_date_gte)
                 if start_date_lt := form.cleaned_data["start_date_lt"]:
                     positions = positions.filter(start__lt=start_date_lt)
-                if min_liq := form.cleaned_data.get("min_liquidation_amount"):
-                    positions = positions.filter(liquidation_amount__gte=min_liq)
-                if max_liq := form.cleaned_data.get("max_liquidation_amount"):
-                    positions = positions.filter(liquidation_amount__lte=max_liq)
                 if weekdays := form.cleaned_data["week_days"]:
                     positions = positions.filter(start__week_day__in=weekdays)
 
@@ -63,26 +59,20 @@ class PositionWhatIfPerHourView(FormView):
                 total_returns = INITIAL_CAPITAL
                 wins = 0
                 losses = 0
-                tp: float = form.cleaned_data["tp"]
-                sl_to_entry: float = form.cleaned_data["sl_to_entry"]
-                use_tp1: bool = form.cleaned_data["use_tp1"]
-                tp1: float = form.cleaned_data["tp1"]
-                tp1_amount: float = form.cleaned_data["tp1_amount"]
-                use_tp2: bool = form.cleaned_data["use_tp2"]
-                tp2: float = form.cleaned_data["tp2"]
-                tp2_amount: float = form.cleaned_data["tp2_amount"]
-                no_overlap: bool = form.cleaned_data["no_overlap"]
-                use_trailing_sl: bool = form.cleaned_data["use_trailing_sl"]
-                trailing_sl: float = form.cleaned_data["trailing_sl"]
+                tp: float = (
+                    form.cleaned_data["live_tp"]
+                    if not reversed
+                    else form.cleaned_data["reversed_tp"]
+                )
                 compound: bool = form.cleaned_data["compound"]
-                last_long_candle_datetime = None
-                last_short_candle_datetime = None
-                percentage_per_trade: float = form.cleaned_data["percentage_per_trade"]
 
                 for position in positions:
                     position.what_if_returns = 0
-                    sl: float = form.cleaned_data["sl"]
-                    use_sl_to_entry: bool = form.cleaned_data["use_sl_to_entry"]
+                    sl: float = (
+                        form.cleaned_data["live_sl"]
+                        if not reversed
+                        else form.cleaned_data["reversed_sl"]
+                    )
                     if use_reverse:
                         if reversed and position.strategy_type != "reversed":
                             position.side = (
@@ -98,57 +88,19 @@ class PositionWhatIfPerHourView(FormView):
                         datetime__gte=position.start,
                         datetime__lt=position.start + timezone.timedelta(days=28),
                     ).order_by("datetime")
-                    tp1_finished = False
-                    tp2_finished = False
                     if ohlcv_s.exists():
                         position.entry_price = ohlcv_s.first().open
                         position.amount = (
                             (total_returns if compound else INITIAL_CAPITAL)
                             / sl
                             / position.entry_price
-                            * percentage_per_trade
                         )
                         amount = position.amount
                         fees_for_opening = 100 * position.amount
                         total_returns -= fees_for_opening
                         position.what_if_returns -= fees_for_opening
-                        if use_trailing_sl:
-                            position_sl_price = (
-                                position.entry_price * (1 - trailing_sl / 100)
-                                if position.side == "LONG"
-                                else position.entry_price * (1 + trailing_sl / 100)
-                            )
                     for candle in ohlcv_s:
                         if position.side == "LONG":
-
-                            # prevent overlapping trades if no_overlap is checked
-                            if no_overlap:
-                                if (
-                                    last_long_candle_datetime
-                                    and candle.datetime < last_long_candle_datetime
-                                ):
-                                    break
-                                last_long_candle_datetime = candle.datetime
-
-                            # trailing SL
-                            if use_trailing_sl:
-                                position_sl_price = max(
-                                    position_sl_price,
-                                    position.entry_price
-                                    - (position.entry_price * sl / 100),
-                                    candle.high - (candle.high * trailing_sl / 100),
-                                )
-
-                                if candle.low <= position_sl_price:
-                                    fees_for_closing = 85 * position.amount
-                                    total_returns -= fees_for_closing
-                                    position.what_if_returns -= fees_for_closing
-                                    loss_or_win = (
-                                        position.entry_price - position_sl_price
-                                    ) * amount
-                                    total_returns -= loss_or_win
-                                    losses += 1
-                                    break
 
                             # SL
                             if candle.low <= position.entry_price - (
@@ -161,46 +113,7 @@ class PositionWhatIfPerHourView(FormView):
                                 losses += 1
                                 break
 
-                            # SL to entry
-                            if (
-                                use_sl_to_entry
-                                and candle.high
-                                > position.entry_price
-                                + (
-                                    position.entry_price
-                                    * (sl_to_entry / 100 * tp / 100)
-                                )
-                            ):
-                                sl = -sl
-                                use_sl_to_entry = False  # only use once
-
-                            # TP1
-                            if use_tp1 and not tp1_finished:
-                                if candle.close >= position.entry_price + (
-                                    position.entry_price * (tp1 / 100 * tp / 100)
-                                ):
-                                    total_returns += (
-                                        position.entry_price * (tp * tp1 / 100) / 100
-                                    ) * (position.amount * tp1_amount / 100)
-                                    amount = amount - (
-                                        position.amount * tp1_amount / 100
-                                    )
-                                    tp1_finished = True
-
-                            # TP2
-                            if use_tp2 and not tp2_finished:
-                                if candle.close >= position.entry_price + (
-                                    position.entry_price * (tp2 / 100 * tp / 100)
-                                ):
-                                    total_returns += (
-                                        position.entry_price * (tp * tp2 / 100) / 100
-                                    ) * (position.amount * tp2_amount / 100)
-                                    amount = amount - (
-                                        position.amount * tp2_amount / 100
-                                    )
-                                    tp2_finished = True
-
-                            # final TP
+                            # TP
                             if candle.close >= position.entry_price + (
                                 position.entry_price * tp / 100
                             ):
@@ -213,34 +126,6 @@ class PositionWhatIfPerHourView(FormView):
 
                         if position.side == "SHORT":
 
-                            # prevent overlapping trades if no_overlap is checked
-                            if no_overlap:
-                                if (
-                                    last_short_candle_datetime
-                                    and candle.datetime < last_short_candle_datetime
-                                ):
-                                    break
-                                last_short_candle_datetime = candle.datetime
-
-                            # trailing SL
-                            if use_trailing_sl:
-                                position_sl_price = min(
-                                    position_sl_price,
-                                    position.entry_price
-                                    + (position.entry_price * sl / 100),
-                                    candle.low + (candle.low * trailing_sl / 100),
-                                )
-
-                                if candle.high >= position_sl_price:
-                                    fees_for_closing = 85 * position.amount
-                                    total_returns -= fees_for_closing
-                                    loss_or_win = (
-                                        position_sl_price - position.entry_price
-                                    ) * amount
-                                    total_returns -= loss_or_win
-                                    losses += 1
-                                    break
-
                             # SL
                             if candle.high >= position.entry_price + (
                                 position.entry_price * sl / 100
@@ -252,46 +137,7 @@ class PositionWhatIfPerHourView(FormView):
                                 losses += 1
                                 break
 
-                            # SL to entry
-                            if (
-                                use_sl_to_entry
-                                and candle.low
-                                < position.entry_price
-                                - (
-                                    position.entry_price
-                                    * (sl_to_entry / 100 * tp / 100)
-                                )
-                            ):
-                                sl = -sl
-                                use_sl_to_entry = False  # only use once
-
-                            # TP1
-                            if use_tp1 and not tp1_finished:
-                                if candle.close <= position.entry_price - (
-                                    position.entry_price * (tp1 / 100 * tp / 100)
-                                ):
-                                    total_returns += (
-                                        position.entry_price * (tp * tp1 / 100) / 100
-                                    ) * (position.amount * tp1_amount / 100)
-                                    amount = amount - (
-                                        position.amount * tp1_amount / 100
-                                    )
-                                    tp1_finished = True
-
-                            # TP2
-                            if use_tp2 and not tp2_finished:
-                                if candle.close <= position.entry_price - (
-                                    position.entry_price * (tp2 / 100 * tp / 100)
-                                ):
-                                    total_returns += (
-                                        position.entry_price * (tp * tp2 / 100) / 100
-                                    ) * (position.amount * tp2_amount / 100)
-                                    amount = amount - (
-                                        position.amount * tp2_amount / 100
-                                    )
-                                    tp2_finished = True
-
-                            # final TP
+                            # TP
                             if candle.close <= position.entry_price - (
                                 position.entry_price * tp / 100
                             ):

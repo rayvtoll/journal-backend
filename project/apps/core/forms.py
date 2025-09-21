@@ -65,8 +65,18 @@ class WhatIfForm(forms.Form):
     )
 
 
-class WhatIfPerHourForm(WhatIfForm):
-    hours = None
-    use_reverse = None
-    reverse_all = None
-    strategy_types = None
+class WhatIfPerHourForm(forms.Form):
+    compound = forms.BooleanField(label="Compound", initial=True, required=False)
+    live_sl = forms.FloatField(label="Live SL (%)", initial=0.54)
+    live_tp = forms.FloatField(label="Live TP (%)", initial=4.74)
+    reversed_sl = forms.FloatField(label="Reversed SL (%)", initial=0.40)
+    reversed_tp = forms.FloatField(label="Reversed TP (%)", initial=4.09)
+    start_date_gte = forms.DateField(label="Start Date (gte)", required=False)
+    start_date_lt = forms.DateField(label="Start Date (lt)", required=False)
+    week_days = forms.MultipleChoiceField(
+        label="Week Days",
+        choices=FORM_DAY_CHOICES,
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        initial=[2, 3, 5, 6, 7, 1]
+    )
