@@ -395,7 +395,7 @@ class PositionWhatIfView(FormView):
                 nr_of_trades=wins + losses,
                 table=self.table_class(object_list),
                 title="What if analysis",
-                risk_reward=(
+                reward_per_trade=(
                     round(
                         (
                             ((total_returns / INITIAL_CAPITAL) ** (1 / (wins + losses)))
