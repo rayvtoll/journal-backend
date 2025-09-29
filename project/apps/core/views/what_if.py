@@ -188,9 +188,11 @@ class PositionWhatIfView(FormView):
                         if candle.close >= position.entry_price + (
                             position.entry_price * (tp1 / 100 * tp / 100)
                         ):
-                            total_returns += (
+                            local_returns = (
                                 position.entry_price * (tp * tp1 / 100) / 100
                             ) * (position.amount * tp1_amount / 100)
+                            total_returns += local_returns
+                            position.what_if_returns += local_returns
                             amount = amount - (position.amount * tp1_amount / 100)
                             tp1_finished = True
 
@@ -199,9 +201,11 @@ class PositionWhatIfView(FormView):
                         if candle.close >= position.entry_price + (
                             position.entry_price * (tp2 / 100 * tp / 100)
                         ):
-                            total_returns += (
+                            local_returns = (
                                 position.entry_price * (tp * tp2 / 100) / 100
                             ) * (position.amount * tp2_amount / 100)
+                            position.what_if_returns += local_returns
+                            total_returns += local_returns
                             amount = amount - (position.amount * tp2_amount / 100)
                             tp2_finished = True
 
@@ -300,9 +304,11 @@ class PositionWhatIfView(FormView):
                         if candle.close <= position.entry_price - (
                             position.entry_price * (tp1 / 100 * tp / 100)
                         ):
-                            total_returns += (
+                            local_returns = (
                                 position.entry_price * (tp * tp1 / 100) / 100
                             ) * (position.amount * tp1_amount / 100)
+                            position.what_if_returns += local_returns
+                            total_returns += local_returns
                             amount = amount - (position.amount * tp1_amount / 100)
                             tp1_finished = True
 
@@ -311,9 +317,11 @@ class PositionWhatIfView(FormView):
                         if candle.close <= position.entry_price - (
                             position.entry_price * (tp2 / 100 * tp / 100)
                         ):
-                            total_returns += (
+                            local_returns = (
                                 position.entry_price * (tp * tp2 / 100) / 100
                             ) * (position.amount * tp2_amount / 100)
+                            position.what_if_returns += local_returns
+                            total_returns += local_returns
                             amount = amount - (position.amount * tp2_amount / 100)
                             tp2_finished = True
 
