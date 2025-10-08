@@ -57,7 +57,6 @@ class PositionWhatIfPerHourView(FormView):
 
                 positions = positions.order_by("start")
 
-                total_returns = INITIAL_CAPITAL
                 wins = 0
                 losses = 0
                 tp: float = (
@@ -89,29 +88,16 @@ class PositionWhatIfPerHourView(FormView):
                     ).order_by("datetime")
                     if ohlcv_s.exists():
                         entry_price = ohlcv_s.first().open
-                        start_amount = INITIAL_CAPITAL / sl / entry_price
-                        amount = start_amount
-                        fees_for_opening = 100 * start_amount
-                        total_returns -= fees_for_opening
-                        position.what_if_returns -= fees_for_opening
                     for candle in ohlcv_s:
                         if position.side == "LONG":
 
                             # SL
                             if candle.low <= entry_price - (entry_price * sl / 100):
-                                fees_for_closing = 85 * start_amount
-                                total_returns -= fees_for_closing
-                                loss = (entry_price * sl / 100) * amount
-                                total_returns -= loss
                                 losses += 1
                                 break
 
                             # TP
                             if candle.close >= entry_price + (entry_price * tp / 100):
-                                fees_for_closing = 30 * start_amount
-                                total_returns -= fees_for_closing
-                                local_win = (entry_price * tp / 100) * amount
-                                total_returns += local_win
                                 wins += 1
                                 break
 
@@ -119,19 +105,11 @@ class PositionWhatIfPerHourView(FormView):
 
                             # SL
                             if candle.high >= entry_price + (entry_price * sl / 100):
-                                fees_for_closing = 85 * start_amount
-                                total_returns -= fees_for_closing
-                                loss = (entry_price * sl / 100) * amount
-                                total_returns -= loss
                                 losses += 1
                                 break
 
                             # TP
                             if candle.close <= entry_price - (entry_price * tp / 100):
-                                fees_for_closing = 30 * start_amount
-                                total_returns -= fees_for_closing
-                                local_wins = (entry_price * tp / 100) * amount
-                                total_returns += local_wins
                                 wins += 1
                                 break
 
@@ -142,8 +120,9 @@ class PositionWhatIfPerHourView(FormView):
                     (wins / (wins + losses)) if wins and losses else 0, 2
                 )
                 table_row[f"{'live' if not reversed else 'reversed'}_nr_of_r_s"] = (
-                    round((tp / sl * wins) - losses, 2)
+                    round((tp / sl * wins) - (losses * 1.2), 2)
                 )
+            print(table_row)
             table_rows.append(table_row)
 
         return self.render_to_response(

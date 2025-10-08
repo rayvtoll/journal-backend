@@ -33,6 +33,7 @@ class Position(models.Model):
             ("live", "Live"),
             ("reversed", "Reversed"),
             ("journaling", "Journaling"),
+            ("grey", "Grey"),
         ],
         default="live",
     )

@@ -1,4 +1,3 @@
-from datetime import timedelta
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
 import seaborn as sns
@@ -78,6 +77,7 @@ class PositionWhatIfView(FormView):
         last_long_candle_datetime = None
         last_short_candle_datetime = None
         percentage_per_trade: float = form.cleaned_data["percentage_per_trade"]
+        use_rsi: bool = form.cleaned_data["use_rsi"]
 
         object_list: list[Position] = []
         for position in positions:
@@ -91,8 +91,15 @@ class PositionWhatIfView(FormView):
                 elif not reverse_all and position.strategy_type == "reversed":
                     position.side = "SHORT" if position.side == "LONG" else "LONG"
 
+            iso_datetime = (
+                f"{position.start.year}-"
+                f"{position.start.month:02d}-"
+                f"{position.start.day:02d} "
+                f"{position.start.hour:02d}:{position.start.minute:02d}:00"
+            )
             ohlcv_s = OHLCV.objects.filter(
-                datetime__gte=position.start,
+                datetime__gte=timezone.datetime.fromisoformat(iso_datetime)
+                + timezone.timedelta(hours=2),  # timezone adjustment # TODO: this ugly
                 datetime__lt=position.start + timezone.timedelta(days=28),
             ).order_by("datetime")
             tp1_finished = False
@@ -115,17 +122,45 @@ class PositionWhatIfView(FormView):
                         if position.side == "LONG"
                         else position.entry_price * (1 + trailing_sl / 100)
                     )
-            for candle in ohlcv_s:
-                if position.side == "LONG":
 
-                    # prevent overlapping trades if no_overlap is checked
-                    if no_overlap:
-                        if (
-                            last_long_candle_datetime
-                            and candle.datetime < last_long_candle_datetime
-                        ):
-                            break
-                        last_long_candle_datetime = candle.datetime
+            # RSI
+            if use_rsi:
+                candles_before = OHLCV.objects.filter(
+                    datetime__lt=ohlcv_s.first().datetime
+                ).order_by("-datetime")[1:15]
+                if candles_before.count() == 14:
+                    gains = 0
+                    loss = 0
+                    for i in range(1, 14):
+                        change = candles_before[i - 1].close - candles_before[i].close
+                        if change > 0:
+                            gains += change
+                        else:
+                            loss -= change
+                    if loss == 0:
+                        rsi = 100
+                    else:
+                        rs = gains / loss
+                        rsi = 100 - (100 / (1 + rs))
+                    if (
+                        rsi > 50
+                        and position.side == "LONG"
+                        or rsi < 50
+                        and position.side == "SHORT"
+                    ):
+                        continue
+
+            # prevent overlapping trades if no_overlap is checked
+            if no_overlap:
+                if (
+                    last_long_candle_datetime
+                    and ohlcv_s.first().datetime < last_long_candle_datetime
+                ):
+                    continue
+
+            for candle in ohlcv_s:
+
+                if position.side == "LONG":
 
                     # trailing SL
                     if use_trailing_sl:
@@ -152,6 +187,7 @@ class PositionWhatIfView(FormView):
                             returns.append(total_returns)
                             dates.append(position.start)
                             losses += 1
+                            last_long_candle_datetime = candle.datetime
                             break
 
                     # SL
@@ -174,6 +210,7 @@ class PositionWhatIfView(FormView):
                         returns.append(total_returns)
                         dates.append(position.start)
                         losses += 1
+                        last_long_candle_datetime = candle.datetime
                         break
 
                     # SL to entry
@@ -229,18 +266,10 @@ class PositionWhatIfView(FormView):
                         returns.append(total_returns)
                         dates.append(position.start)
                         wins += 1
+                        last_long_candle_datetime = candle.datetime
                         break
 
                 if position.side == "SHORT":
-
-                    # prevent overlapping trades if no_overlap is checked
-                    if no_overlap:
-                        if (
-                            last_short_candle_datetime
-                            and candle.datetime < last_short_candle_datetime
-                        ):
-                            break
-                        last_short_candle_datetime = candle.datetime
 
                     # trailing SL
                     if use_trailing_sl:
@@ -267,6 +296,7 @@ class PositionWhatIfView(FormView):
                             returns.append(total_returns)
                             dates.append(position.start)
                             losses += 1
+                            last_long_candle_datetime = candle.datetime
                             break
 
                     # SL
@@ -290,6 +320,7 @@ class PositionWhatIfView(FormView):
                         returns.append(total_returns)
                         dates.append(position.start)
                         losses += 1
+                        last_long_candle_datetime = candle.datetime
                         break
 
                     # SL to entry
@@ -345,6 +376,7 @@ class PositionWhatIfView(FormView):
                         returns.append(total_returns)
                         dates.append(position.start)
                         wins += 1
+                        last_long_candle_datetime = candle.datetime
                         break
 
         # y as
@@ -365,7 +397,7 @@ class PositionWhatIfView(FormView):
             if current_date in returns_dict:
                 last_return = returns_dict[current_date]
             returns_filled.append(last_return)
-            current_date += timedelta(days=1)
+            current_date += timezone.timedelta(days=1)
 
         x_as_data = date_range
         y_as_data = returns_filled

@@ -12,6 +12,7 @@ FORM_DAY_CHOICES = [
 
 
 class WhatIfForm(forms.Form):
+    use_rsi = forms.BooleanField(label="Use RSI Filter", required=False)
     use_reverse = forms.BooleanField(
         label="Use Reverse Strategy", required=False, initial=True
     )
