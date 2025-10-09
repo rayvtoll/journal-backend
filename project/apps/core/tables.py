@@ -107,6 +107,19 @@ class WhatIfPerHourPositionTable(tables.Table):
         },
         orderable=False,
     )
+    grey_nr_of_trades = tables.Column(verbose_name="Grey # Trades", orderable=False)
+    grey_ratio = tables.Column(verbose_name="Grey Win Ratio", orderable=False)
+    grey_nr_of_r_s = tables.Column(
+        verbose_name="Grey # R's",
+        attrs={
+            "td": {
+                "class": lambda record: (
+                    "text-success" if record["grey_nr_of_r_s"] > 0 else "text-danger"
+                )
+            }
+        },
+        orderable=False,
+    )
 
     class Meta:
         attrs = {

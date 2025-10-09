@@ -43,7 +43,11 @@ class PositionWhatIfPerHourView(FormView):
         table_rows: List[dict] = []
         for hour in range(24) if not hours else hours:
             table_row = {"hour": hour}
-            for reversed in [False, True]:
+            for name, reversed in {
+                "live": False,
+                "reversed": True,
+                "grey": False,
+            }.items():
                 positions: QuerySet[Position] = self.model.objects.filter(
                     candles_before_entry=1,
                     start__hour=hour,
@@ -59,16 +63,8 @@ class PositionWhatIfPerHourView(FormView):
 
                 wins = 0
                 losses = 0
-                tp: float = (
-                    form.cleaned_data["live_tp"]
-                    if not reversed
-                    else form.cleaned_data["reversed_tp"]
-                )
-                sl: float = (
-                    form.cleaned_data["live_sl"]
-                    if not reversed
-                    else form.cleaned_data["reversed_sl"]
-                )
+                tp: float = form.cleaned_data[f"{name}_tp"]
+                sl: float = form.cleaned_data[f"{name}_sl"]
                 for position in positions:
                     position.what_if_returns = 0
                     if use_reverse:
@@ -113,14 +109,12 @@ class PositionWhatIfPerHourView(FormView):
                                 wins += 1
                                 break
 
-                table_row[f"{'live' if not reversed else 'reversed'}_nr_of_trades"] = (
-                    wins + losses
-                )
-                table_row[f"{'live' if not reversed else 'reversed'}_ratio"] = round(
+                table_row[f"{name}_nr_of_trades"] = wins + losses
+                table_row[f"{name}_ratio"] = round(
                     (wins / (wins + losses)) if wins and losses else 0, 2
                 )
-                table_row[f"{'live' if not reversed else 'reversed'}_nr_of_r_s"] = (
-                    round((tp / sl * wins) - (losses * 1.2), 2)
+                table_row[f"{name}_nr_of_r_s"] = round(
+                    (tp / sl * wins) - (losses * 1.2), 2
                 )
             print(table_row)
             table_rows.append(table_row)

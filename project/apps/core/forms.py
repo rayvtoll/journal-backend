@@ -29,8 +29,8 @@ class WhatIfForm(forms.Form):
         required=False,
         widget=forms.CheckboxSelectMultiple,
     )
-    sl = forms.FloatField(label="Stop Loss (%)", initial=0.54)
-    tp = forms.FloatField(label="Take Profit (%)", initial=4.74)
+    sl = forms.FloatField(label="Stop Loss (%)", initial=0.5)
+    tp = forms.FloatField(label="Take Profit (%)", initial=5)
     start_date_gte = forms.DateField(label="Start Date (gte)", required=False)
     start_date_lt = forms.DateField(label="Start Date (lt)", required=False)
     use_trailing_sl = forms.BooleanField(label="Use Trailing SL", required=False)
@@ -47,7 +47,7 @@ class WhatIfForm(forms.Form):
         label="Hours",
         choices=[(i, i) for i in range(0, 24)],
         widget=forms.CheckboxSelectMultiple,
-        initial=[0, 1, 2, 3, 4, 17, 18, 19, 20, 23],
+        initial=[2, 3, 4],
     )
     week_days = forms.MultipleChoiceField(
         label="Week Days",
@@ -68,10 +68,12 @@ class WhatIfForm(forms.Form):
 
 
 class WhatIfPerHourForm(forms.Form):
-    live_sl = forms.FloatField(label="Live SL (%)", initial=0.54)
-    live_tp = forms.FloatField(label="Live TP (%)", initial=4.74)
-    reversed_sl = forms.FloatField(label="Reversed SL (%)", initial=0.40)
-    reversed_tp = forms.FloatField(label="Reversed TP (%)", initial=4.09)
+    live_sl = forms.FloatField(label="Live SL (%)", initial=0.5)
+    live_tp = forms.FloatField(label="Live TP (%)", initial=5.0)
+    grey_sl = forms.FloatField(label="Grey SL (%)", initial=0.8)
+    grey_tp = forms.FloatField(label="Grey TP (%)", initial=4.0)
+    reversed_sl = forms.FloatField(label="Reversed SL (%)", initial=0.4)
+    reversed_tp = forms.FloatField(label="Reversed TP (%)", initial=4.0)
     start_date_gte = forms.DateField(label="Start Date (gte)", required=False)
     start_date_lt = forms.DateField(label="Start Date (lt)", required=False)
     week_days = forms.MultipleChoiceField(
