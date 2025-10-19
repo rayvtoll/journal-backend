@@ -54,7 +54,7 @@ class WhatIfForm(forms.Form):
         choices=FORM_DAY_CHOICES,
         widget=forms.CheckboxSelectMultiple,
         required=False,
-        initial=[2, 3, 5, 6, 7, 1]
+        initial=[2, 3, 4, 5, 6, 7, 1]
     )
     min_liquidation_amount = forms.IntegerField(
         label="Min Liquidation Amount", required=False
@@ -81,7 +81,7 @@ class WhatIfPerHourForm(forms.Form):
         choices=FORM_DAY_CHOICES,
         widget=forms.CheckboxSelectMultiple,
         required=False,
-        initial=[2, 3, 5, 6, 7, 1]
+        initial=[2, 3, 4, 5, 6, 7, 1]
     )
     hours = forms.MultipleChoiceField(
         label="Hours",
