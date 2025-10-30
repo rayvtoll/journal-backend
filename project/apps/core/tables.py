@@ -28,7 +28,7 @@ class PositionTable(tables.Table):
         attrs = {
             "class": "table table-hover",
             "th": {
-                "class": "bg-light",
+                "class": "bg-dark",
             },
         }
 
@@ -54,7 +54,34 @@ class WhatIfPositionTable(PositionTable):
         attrs = {
             "class": "table table-hover",
             "th": {
-                "class": "bg-light",
+                "class": "bg-dark",
+            },
+        }
+
+
+class WhatIfTogetherPositionTable(PositionTable):
+    """What if position table"""
+
+    liquidation_amount = None
+    candles_before_entry = None
+    nr_of_liquidations = None
+    returns = None
+
+    class Meta:
+        model = Position
+        fields = (
+            "id",
+            "strategy_type",
+            "start",
+            "side",
+            "what_if_returns",
+            "entry_price",
+            "closing_price",
+        )
+        attrs = {
+            "class": "table table-hover",
+            "th": {
+                "class": "bg-dark",
             },
         }
 
@@ -125,6 +152,6 @@ class WhatIfPerHourPositionTable(tables.Table):
         attrs = {
             "class": "table table-hover",
             "th": {
-                "class": "bg-light",
+                "class": "bg-dark",
             },
         }

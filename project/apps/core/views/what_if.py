@@ -98,8 +98,7 @@ class PositionWhatIfView(FormView):
                 f"{position.start.hour:02d}:{position.start.minute:02d}:00"
             )
             ohlcv_s = OHLCV.objects.filter(
-                datetime__gte=timezone.datetime.fromisoformat(iso_datetime)
-                + timezone.timedelta(hours=2),  # timezone adjustment # TODO: this ugly
+                datetime__gte=timezone.datetime.fromisoformat(iso_datetime),
                 datetime__lt=position.start + timezone.timedelta(days=28),
             ).order_by("datetime")
             tp1_finished = False

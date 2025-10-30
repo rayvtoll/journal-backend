@@ -24,6 +24,7 @@ class WhatIfForm(forms.Form):
         choices=[
             ("live", "Live"),
             ("reversed", "Reversed"),
+            ("grey", "Grey"),
             ("journaling", "Journaling"),
         ],
         required=False,
@@ -64,6 +65,75 @@ class WhatIfForm(forms.Form):
     )
     percentage_per_trade = forms.FloatField(
         label="Percentage per Trade (%)", initial=1, required=False
+    )
+
+FORM_DAY_TOGETHER_CHOICES = [
+    (0, "Monday"),
+    (1, "Tuesday"),
+    (2, "Wednesday"),
+    (3, "Thursday"),
+    (4, "Friday"),
+    (5, "Saturday"),
+    (6, "Sunday"),
+]
+
+class WhatIfTogetherForm(forms.Form):
+    strategies = forms.MultipleChoiceField(
+        label="Strategies",
+        choices=[
+            ("live", "Live"),
+            ("reversed", "Reversed"),
+            ("grey", "Grey"),
+        ],
+        widget=forms.CheckboxSelectMultiple,
+        initial=["live", "reversed", "grey"],
+    )
+    live_sl = forms.FloatField(label="Stop Loss (%)", initial=0.5)
+    live_tp = forms.FloatField(label="Take Profit (%)", initial=5)
+    reversed_sl = forms.FloatField(label="Reversed SL (%)", initial=0.4)
+    reversed_tp = forms.FloatField(label="Reversed TP (%)", initial=4.0)
+    grey_sl = forms.FloatField(label="Grey SL (%)", initial=0.8)
+    grey_tp = forms.FloatField(label="Grey TP (%)", initial=4.0)
+    start_date_gte = forms.DateField(label="Start Date (gte)", required=False)
+    start_date_lt = forms.DateField(label="Start Date (lt)", required=False)
+    live_hours = forms.MultipleChoiceField(
+        label="Live Hours",
+        choices=[(i, i) for i in range(0, 24)],
+        widget=forms.CheckboxSelectMultiple,
+        initial=[2, 3, 4],
+    )
+    live_week_days = forms.MultipleChoiceField(
+        label="Live Week Days",
+        choices=FORM_DAY_TOGETHER_CHOICES,
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        initial=[0, 1, 2, 3, 4, 5, 6]
+    )
+    reversed_hours = forms.MultipleChoiceField(
+        label="Reversed Hours",
+        choices=[(i, i) for i in range(0, 24)],
+        widget=forms.CheckboxSelectMultiple,
+        initial=[14, 15, 16],
+    )
+    reversed_week_days = forms.MultipleChoiceField(
+        label="Reversed Week Days",
+        choices=FORM_DAY_TOGETHER_CHOICES,
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        initial=[0, 1, 2, 3, 4, 5, 6]
+    )
+    grey_hours = forms.MultipleChoiceField(
+        label="Grey Hours",
+        choices=[(i, i) for i in range(0, 24)],
+        widget=forms.CheckboxSelectMultiple,
+        initial=[0, 1, 17, 18, 19, 20, 21, 22, 23],
+    )
+    grey_week_days = forms.MultipleChoiceField(
+        label="Grey Week Days",
+        choices=FORM_DAY_TOGETHER_CHOICES,
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        initial=[0, 1, 3, 4, 5, 6]
     )
 
 

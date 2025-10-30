@@ -27,7 +27,7 @@ async def get_closing_data() -> List[dict]:
             symbol="BTC/USDT:USDT",
             timeframe="5m",
             since=int(
-                (timezone.now() - timezone.timedelta(days=days, minutes=5)).timestamp()
+                (timezone.now() - timezone.timedelta(days=days)).timestamp()
                 * 1000
             ),
             limit=288,

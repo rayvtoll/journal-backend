@@ -1,7 +1,5 @@
-from datetime import timedelta
 from typing import List
 import matplotlib.pyplot as plt
-import matplotlib.ticker as mtick
 import seaborn as sns
 
 from django.db.models import QuerySet
@@ -13,7 +11,7 @@ from project.apps.core.forms import WhatIfPerHourForm
 from project.apps.core.models import Position, OHLCV
 from project.apps.core.tables import WhatIfPerHourPositionTable
 
-from .helpers import COLOR_LIST, INITIAL_CAPITAL, SNS_THEME, image_encoder, plotter
+from .helpers import COLOR_LIST, SNS_THEME
 
 
 class PositionWhatIfPerHourView(FormView):
