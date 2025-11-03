@@ -48,7 +48,7 @@ class WhatIfForm(forms.Form):
         label="Hours",
         choices=[(i, i) for i in range(0, 24)],
         widget=forms.CheckboxSelectMultiple,
-        initial=[2, 3, 4],
+        initial=[1, 2, 3, 4],
     )
     week_days = forms.MultipleChoiceField(
         label="Week Days",
@@ -100,7 +100,7 @@ class WhatIfTogetherForm(forms.Form):
         label="Live Hours",
         choices=[(i, i) for i in range(0, 24)],
         widget=forms.CheckboxSelectMultiple,
-        initial=[2, 3, 4],
+        initial=[1, 2, 3, 4],
     )
     live_week_days = forms.MultipleChoiceField(
         label="Live Week Days",
@@ -126,7 +126,7 @@ class WhatIfTogetherForm(forms.Form):
         label="Grey Hours",
         choices=[(i, i) for i in range(0, 24)],
         widget=forms.CheckboxSelectMultiple,
-        initial=[0, 1, 17, 18, 19, 20, 21, 22, 23],
+        initial=[0, 17, 18, 19, 20, 21, 22, 23],
     )
     grey_week_days = forms.MultipleChoiceField(
         label="Grey Week Days",
