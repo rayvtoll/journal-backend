@@ -43,7 +43,7 @@ SNS_THEME = dict(
 def plotter(plt: plt, legend: bool = True) -> io.BytesIO:
     """functie die een plot als een plaatje teruggeeft"""
 
-    plt.grid(visible=True, which="major", axis="y", color="lightgrey", linestyle="--")
+    plt.grid(visible=True, which="major", axis="y", color="#444444", linestyle="--")
     if legend:
         plt.legend(frameon=False)
     s = io.BytesIO()

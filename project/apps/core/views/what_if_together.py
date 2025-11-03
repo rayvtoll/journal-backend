@@ -59,8 +59,7 @@ class PositionWhatIfTogetherView(FormView):
                 "live" in form.cleaned_data["strategies"]
                 and str(position.start.weekday())
                 in (form.cleaned_data["live_week_days"])
-                and str(position.start.hour)
-                in form.cleaned_data["live_hours"]
+                and str(position.start.hour) in form.cleaned_data["live_hours"]
             ):
                 if position.strategy_type == "reversed":
                     position.side = "SHORT" if position.side == "LONG" else "LONG"
@@ -71,8 +70,7 @@ class PositionWhatIfTogetherView(FormView):
                 "reversed" in form.cleaned_data["strategies"]
                 and str(position.start.weekday())
                 in (form.cleaned_data["reversed_week_days"])
-                and str(position.start.hour)
-                in form.cleaned_data["reversed_hours"]
+                and str(position.start.hour) in form.cleaned_data["reversed_hours"]
             ):
                 if position.strategy_type != "reversed":
                     position.side = "SHORT" if position.side == "LONG" else "LONG"
@@ -104,7 +102,14 @@ class PositionWhatIfTogetherView(FormView):
                 datetime__lt=position.start + timezone.timedelta(days=28),
             ).order_by("datetime")
             if ohlcv_s.exists():
-                position.entry_price = ohlcv_s.first().open
+                position.entry_price = round(
+                    (
+                        ohlcv_s.first().open * 1.0001
+                        if position.side == "SHORT"
+                        else ohlcv_s.first().open * 0.9999
+                    ),
+                    1,
+                )
                 position.amount = total_returns / position.entry_price / sl
                 amount = position.amount
                 fees_for_opening = 100 * position.amount

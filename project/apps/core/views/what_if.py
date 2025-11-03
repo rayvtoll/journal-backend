@@ -104,7 +104,14 @@ class PositionWhatIfView(FormView):
             tp1_finished = False
             tp2_finished = False
             if ohlcv_s.exists():
-                position.entry_price = ohlcv_s.first().open
+                position.entry_price = round(
+                    (
+                        ohlcv_s.first().open * 1.0001
+                        if position.side == "SHORT"
+                        else ohlcv_s.first().open * 0.9999
+                    ),
+                    1,
+                )
                 position.amount = (
                     (total_returns if compound else INITIAL_CAPITAL)
                     / sl

@@ -81,7 +81,14 @@ class PositionWhatIfPerHourView(FormView):
                         datetime__lt=position.start + timezone.timedelta(days=28),
                     ).order_by("datetime")
                     if ohlcv_s.exists():
-                        entry_price = ohlcv_s.first().open
+                        entry_price = round(
+                            (
+                                ohlcv_s.first().open * 1.0001
+                                if position.side == "SHORT"
+                                else ohlcv_s.first().open * 0.9999
+                            ),
+                            1,
+                        )
                     for candle in ohlcv_s:
                         if position.side == "LONG":
 
