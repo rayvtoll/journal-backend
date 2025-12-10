@@ -1,7 +1,7 @@
 from import_export.admin import ImportExportModelAdmin
 from django.contrib import admin
 
-from .models import User, Position, OHLCV
+from project.apps.core.models import User, Position, OHLCV, Liquidation
 
 
 @admin.register(User)
@@ -14,14 +14,12 @@ class PositionAdmin(ImportExportModelAdmin):
     model = Position
     list_display = (
         "id",
+        "liquidation_datetime",
         "start",
-        "end",
         "side",
-        "returns",
         "entry_price",
-        "closing_price",
     )
-    list_filter = ("side", "amount", "start", "end")
+    list_filter = ("side", "liquidation_datetime")
 
 
 @admin.register(OHLCV)
@@ -39,3 +37,17 @@ class OHLCVAdmin(ImportExportModelAdmin):
         "volume",
     )
     list_filter = ("symbol", "timeframe", "datetime")
+
+
+@admin.register(Liquidation)
+class LiquidationAdmin(ImportExportModelAdmin):
+    model = Liquidation
+    list_display = (
+        "id",
+        "timeframe",
+        "symbol",
+        "datetime",
+        "side",
+        "amount",
+    )
+    list_filter = ("symbol", "timeframe", "side", "datetime")

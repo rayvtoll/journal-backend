@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import random
 import seaborn as sns
 
 from django.db.models import QuerySet
@@ -67,7 +68,7 @@ class PositionListView(SingleTableMixin, FilterView):
         ax.get_xaxis().set_visible(False)
 
         # plots
-        c = COLOR_LIST[-1]
+        c = random.choice(COLOR_LIST)
         ax.plot(
             x_as_data, y_as_data, color=c, label="Returns", linewidth=3, markersize=8
         )

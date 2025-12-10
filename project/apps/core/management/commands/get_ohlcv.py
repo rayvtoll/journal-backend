@@ -5,50 +5,69 @@ from django.core.management.base import BaseCommand
 
 from project.apps.core.models import OHLCV
 
-from decouple import config
 import ccxt.pro as ccxt
 
-secret_key = config("BLOFIN_SECRET_KEY")
-api_key = config("BLOFIN_API_KEY")
-passphrase = config("BLOFIN_PASSPHRASE")
 
 EXCHANGE = ccxt.binance()
-# blofin(
-# config={"apiKey": api_key, "secret": secret_key, "password": passphrase}
-# )
 
 
-async def get_closing_data() -> List[dict]:
+async def get_closing_data(
+    timeframe: str = "5m", from_days_ago: int = 10, to_days_ago: int = 0
+) -> List[dict]:
     """Asynchronously fetches closing data for a given position."""
 
     candles = []
-    for days in range(10):
+    for days in range(from_days_ago, to_days_ago, -1):
         candles = candles + await EXCHANGE.fetch_ohlcv(
             symbol="BTC/USDT:USDT",
-            timeframe="5m",
+            timeframe=timeframe,
             since=int(
-                (timezone.now() - timezone.timedelta(days=days)).timestamp()
-                * 1000
+                (timezone.now() - timezone.timedelta(days=days)).timestamp() * 1000
             ),
-            limit=288,
+            limit=int(24 * 60 / 5) if timeframe == "5m" else (24 * 60),
         )
     await EXCHANGE.close()
     return candles
 
 
 class Command(BaseCommand):
-    help = "Loads inspections for the current day."
+    help = "Get OHLCV data and store it in the database."
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--from-days-ago",
+            type=int,
+            default=10,
+            help="Number of days ago to start fetching data from",
+        )
+        parser.add_argument(
+            "--to-days-ago",
+            type=int,
+            default=0,
+            help="Number of days ago to stop fetching data",
+        )
+        parser.add_argument(
+            "--timeframe",
+            type=str,
+            default="5m",
+            help="Timeframe for the OHLCV data",
+        )
 
     def handle(self, *args, **options):
-        candles = run(get_closing_data())
+        print(options)
+        candles = run(
+            get_closing_data(
+                options["timeframe"], options["from_days_ago"], options["to_days_ago"]
+            )
+        )
         for candle in candles:
             candle_defaults = {
                 "symbol": "BTC/USDT:USDT",
-                "timeframe": "5m",
+                "timeframe": options["timeframe"],
                 "datetime": timezone.datetime.fromtimestamp(candle[0] / 1000),
             }
             try:
-                ohlcv, _ = OHLCV.objects.update_or_create(
+                ohlcv, created = OHLCV.objects.update_or_create(
                     defaults=candle_defaults,
                     open=candle[1],
                     high=candle[2],
@@ -56,7 +75,7 @@ class Command(BaseCommand):
                     close=candle[4],
                     volume=candle[5],
                 )
-                print(ohlcv)
+                print(ohlcv, created)
             except Exception as e:
                 ohlcv_s = OHLCV.objects.filter(**candle_defaults)
                 if not ohlcv_s.exists():

@@ -48,7 +48,7 @@ class Position(models.Model):
         choices=_TimeFrameChoices.choices,
         default=_TimeFrameChoices.FIVE_MINUTES,
     )
-
+    liquidation_datetime = models.DateTimeField(null=True, blank=True)
     start = models.DateTimeField()
     entry_price = models.FloatField(null=True, blank=True)
     entry_fee = models.FloatField(null=True, blank=True)
@@ -56,6 +56,12 @@ class Position(models.Model):
     end = models.DateTimeField(null=True, blank=True)
     closing_price = models.FloatField(null=True, blank=True)
     closing_fee = models.FloatField(null=True, blank=True)
+    timeframe = models.CharField(
+        max_length=5,
+        choices=_TimeFrameChoices.choices,
+        default=_TimeFrameChoices.FIVE_MINUTES,
+    )
+    symbol = models.CharField(max_length=20, default="BTCUSDT")
 
     @property
     def admin_url(self):
@@ -86,7 +92,7 @@ class Position(models.Model):
 
     def __str__(self):
         """String representation of the Position model."""
-        return f"Position[{self.id}]"
+        return f"Position[{self.symbol}({self.timeframe}) {self.side} - {self.start} - {self.amount} - {self.liquidation_amount}]"
 
 
 class OHLCV(models.Model):
@@ -107,3 +113,24 @@ class OHLCV(models.Model):
     def __str__(self):
         """String representation of the OHLCV model."""
         return f"OHLCV[{self.symbol} - {self.timeframe} - {self.datetime}]"
+
+
+class Liquidation(models.Model):
+    """Liquidation model for storing liquidation events."""
+
+    class _LiquidationSideChoices(models.TextChoices):
+        LONG = "LONG", "LONG"
+        SHORT = "SHORT", "SHORT"
+
+    symbol = models.CharField(max_length=20)
+    datetime = models.DateTimeField()
+    side = models.CharField(max_length=5, choices=_LiquidationSideChoices.choices)
+    amount = models.FloatField()
+    timeframe = models.CharField(max_length=10, default="5min")
+
+    def __str__(self):
+        """String representation of the Liquidation model."""
+        return f"Liquidation[{self.symbol} \t {self.timeframe} \t {self.datetime} \t {self.side}]"
+
+    class Meta:
+        unique_together = ("symbol", "datetime", "side", "timeframe")
