@@ -496,7 +496,6 @@ class PositionWhatIfView(FormView):
                         position.what_if_returns = (
                             f"$ {round(position.what_if_returns, 2):,}"
                         )
-                        position.liquidation_amount = loss
                         object_list.insert(0, position)
                         returns.append(total_returns)
                         dates.append(position.start)

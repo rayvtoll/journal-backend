@@ -43,6 +43,7 @@ class WhatIfPositionTable(PositionTable):
     liquidation_amount = None
     nr_of_liquidations = None
     returns = None
+    candles_before_entry = tables.Column(verbose_name="#Conf.")
 
     class Meta:
         model = Position
