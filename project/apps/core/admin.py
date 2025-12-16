@@ -14,12 +14,14 @@ class PositionAdmin(ImportExportModelAdmin):
     model = Position
     list_display = (
         "id",
+        "strategy_type",
+        "candles_before_entry",
         "liquidation_datetime",
         "start",
         "side",
         "entry_price",
     )
-    list_filter = ("side", "liquidation_datetime")
+    list_filter = ("side", "strategy_type", "liquidation_datetime")
 
 
 @admin.register(OHLCV)

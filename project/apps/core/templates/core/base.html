@@ -48,6 +48,12 @@
             </li>
             <li class="nav-item">
               <a
+                class="nav-link {% if request.resolver_match.url_name == 'positions_what_if_rsi' %}active{% endif %}"
+                href="{% url 'positions_what_if_rsi' %}"
+                >What If RSI</a
+              >
+            <li class="nav-item">
+              <a
                 class="nav-link {% if request.resolver_match.url_name == 'positions_what_if_per_hour' %}active{% endif %}"
                 href="{% url 'positions_what_if_per_hour' %}"
                 >What If Per Hour</a

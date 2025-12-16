@@ -50,6 +50,7 @@ class WhatIfPositionTable(PositionTable):
         fields = (
             "id",
             "candles_before_entry",
+            "liquidation_datetime",
             "start",
             "side",
             "what_if_returns",

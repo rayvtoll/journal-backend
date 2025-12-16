@@ -1,5 +1,6 @@
 import base64
 import io
+from attr import dataclass
 import matplotlib.pyplot as plt
 
 COLOR_LIST = [
@@ -91,3 +92,27 @@ def image_encoder(s: io.BytesIO) -> str:
     """functie die plaatje als base64 verpakt zodat deze niet op de server hoeft te worden opgeslagen"""
 
     return base64.b64encode(s.getvalue()).decode("utf-8").replace("\n", "")
+
+
+@dataclass
+class WinStreak:
+    """Dataclass for win/loss streak tracking."""
+
+    longest_win_streak: int = 0
+    longest_loss_streak: int = 0
+    current_win_streak: int = 0
+    current_loss_streak: int = 0
+
+    def record_win(self):
+        """Records a win and updates streaks."""
+        self.current_win_streak += 1
+        self.current_loss_streak = 0
+        if self.current_win_streak > self.longest_win_streak:
+            self.longest_win_streak = self.current_win_streak
+
+    def record_loss(self):
+        """Records a loss and updates streaks."""
+        self.current_loss_streak += 1
+        self.current_win_streak = 0
+        if self.current_loss_streak > self.longest_loss_streak:
+            self.longest_loss_streak = self.current_loss_streak

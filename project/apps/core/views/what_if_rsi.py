@@ -8,7 +8,7 @@ from django.utils import timezone
 from django.views.generic.edit import FormView
 
 from project.apps.core.filters import PositionFilterSet
-from project.apps.core.forms import WhatIfForm
+from project.apps.core.forms import WhatIfRSIForm
 from project.apps.core.models import Position, OHLCV
 from project.apps.core.tables import WhatIfPositionTable
 
@@ -25,16 +25,16 @@ BLOFIN_MARKET_ORDER_FEE = 0.06 / 100  # 0.06% for non VIP users
 BLOFIN_LIMIT_ORDER_FEE = 0.02 / 100  # 0.002% for non VIP users
 
 
-class PositionWhatIfView(FormView):
+class PositionWhatIfRSIView(FormView):
     """List view for positions with table and filter functionality."""
 
     template_name = "core/what_if.html"
     model = Position
     table_class = WhatIfPositionTable
     filterset_class = PositionFilterSet
-    form_class = WhatIfForm
+    form_class = WhatIfRSIForm
 
-    def form_valid(self, form: WhatIfForm):
+    def form_valid(self, form: WhatIfRSIForm):
         plt.rcParams["axes.prop_cycle"] = plt.cycler(color=COLOR_LIST)
         sns.set_theme(**SNS_THEME)
         sns.set_context(
@@ -48,19 +48,17 @@ class PositionWhatIfView(FormView):
 
         positions: QuerySet[Position] = self.model.objects.filter(
             Q(
-                strategy_type="live",
+                strategy_type="rsi_live",
                 candles_before_entry__in=form.cleaned_data["live_candles_before_entry"],
             )
             | Q(
-                strategy_type="reversed",
+                strategy_type="rsi_reversed",
                 candles_before_entry__in=form.cleaned_data[
                     "reversed_candles_before_entry"
                 ],
             )
         ).distinct()
         positions = positions.filter(timeframe="5m")
-        if strategy_types := form.cleaned_data["strategy_types"]:
-            positions = positions.filter(strategy_type__in=strategy_types)
         if start_date_gte := form.cleaned_data["start_date_gte"]:
             positions = positions.filter(start__gte=start_date_gte)
         if start_date_lt := form.cleaned_data["start_date_lt"]:
@@ -69,11 +67,12 @@ class PositionWhatIfView(FormView):
             positions = positions.filter(liquidation_datetime__week_day__in=weekdays)
         if hours := form.cleaned_data["hours"]:
             positions = positions.filter(liquidation_datetime__hour__in=hours)
-        if min_liq := form.cleaned_data.get("min_liquidation_amount"):
-            positions = positions.filter(liquidation_amount__gte=min_liq)
-        if max_liq := form.cleaned_data.get("max_liquidation_amount"):
-            positions = positions.filter(liquidation_amount__lte=max_liq)
+        if strategy_types := form.cleaned_data["strategy_types"]:
+            positions = positions.filter(
+                strategy_type__in=["rsi_" + st for st in strategy_types]
+            )
 
+        print(positions.count())
         positions = positions.order_by("start")
 
         returns = []
@@ -125,10 +124,10 @@ class PositionWhatIfView(FormView):
         object_list: list[Position] = []
         for position in positions:
             match position.strategy_type:
-                case "reversed":
+                case "rsi_reversed":
                     sl: float = form.cleaned_data["reversed_sl"]
                     tp: float = form.cleaned_data["reversed_tp"]
-                case "live" | _:
+                case "rsi_live" | _:
                     sl: float = form.cleaned_data["live_sl"]
                     tp: float = form.cleaned_data["live_tp"]
             position.what_if_returns = 0
@@ -817,7 +816,12 @@ class PositionWhatIfView(FormView):
 
         # plots
         c = random.choice(COLOR_LIST)
-        ax.plot(
+        use_log = form.cleaned_data.get("use_log_scale", False)
+        if use_log:
+            ax_func = getattr(ax, "semilogy")
+        else:
+            ax_func = getattr(ax, "plot")
+        ax_func(
             x_as_data, y_as_data, color=c, label="Capital", linewidth=2, markersize=8
         )
         ax.fill_between(x_as_data, 0, y_as_data, alpha=0.3, color=c)

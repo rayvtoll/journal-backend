@@ -95,7 +95,7 @@ class Command(BaseCommand):
             for candle in candles_after_liquidation:
                 if candle.close > confirmation_candle.close * 1.005:
                     print(
-                        Position.objects.create(
+                        Position.objects.get_or_create(
                             liquidation_datetime=liquidation["datetime"],
                             start=candle.datetime + timedelta(minutes=5),
                             side=Position._PostionSideChoices.LONG,
@@ -113,7 +113,7 @@ class Command(BaseCommand):
                     break
                 if candle.close < confirmation_candle.close * 0.995:
                     print(
-                        Position.objects.create(
+                        Position.objects.get_or_create(
                             liquidation_datetime=liquidation["datetime"],
                             start=candle.datetime + timedelta(minutes=5),
                             side=Position._PostionSideChoices.SHORT,

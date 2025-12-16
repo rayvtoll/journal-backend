@@ -22,20 +22,22 @@ class Position(models.Model):
         FIVE_MINUTES = "5m", "5 Minutes"
         FIFTEEN_MINUTES = "15m", "15 Minutes"
 
+    class StrategyTypeChoices(models.TextChoices):
+        LIVE = "live", "Live"
+        REVERSED = "reversed", "Reversed"
+        JOURNALING = "journaling", "Journaling"
+        RSI_LIVE = "rsi_live", "RSI Live"
+        RSI_REVERSED = "rsi_reversed", "RSI Reversed"
+
     side = models.CharField(
         max_length=10,
         choices=_PostionSideChoices.choices,
         default=_PostionSideChoices.LONG,
     )
     strategy_type = models.CharField(
-        max_length=10,
-        choices=[
-            ("live", "Live"),
-            ("reversed", "Reversed"),
-            ("journaling", "Journaling"),
-            ("grey", "Grey"),
-        ],
-        default="live",
+        max_length=12,
+        choices=StrategyTypeChoices.choices,
+        default=StrategyTypeChoices.LIVE,
     )
     take_profit_price = models.FloatField(null=True, blank=True)
     stop_loss_price = models.FloatField(null=True, blank=True)
@@ -92,7 +94,7 @@ class Position(models.Model):
 
     def __str__(self):
         """String representation of the Position model."""
-        return f"Position[{self.symbol}({self.timeframe}) {self.side} - {self.start} - {self.amount} - {self.liquidation_amount}]"
+        return f"Position[{self.symbol}({self.timeframe}) {self.side} - liq {self.liquidation_datetime} - start {self.start}]"
 
 
 class OHLCV(models.Model):

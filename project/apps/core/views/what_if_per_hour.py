@@ -28,13 +28,16 @@ class PositionWhatIfPerHourView(FormView):
             table_row = {"hour": hour}
             positions: QuerySet[Position] = self.model.objects.filter(
                 Q(
-                    strategy_type="live",
+                    strategy_type="rsi_live",
                     candles_before_entry=1,
                 )
                 | Q(
-                    strategy_type="reversed",
+                    strategy_type="rsi_reversed",
                     candles_before_entry__in=[1, 2],
                 )
+                # TODO: find a way to combine RSI with 'regular' live and reversed
+                # strategy_type__in=["rsi_live", "rsi_reversed"],
+                # candles_before_entry__in=[1, 2],
             ).distinct()
             positions = positions.filter(
                 liquidation_datetime__hour=hour,

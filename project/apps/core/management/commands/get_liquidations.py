@@ -39,7 +39,7 @@ class Command(BaseCommand):
 
     def get_params(self, **options) -> dict:
         """Returns the parameters for the request to the API"""
-        now = datetime.now()
+        now = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         return {
             "symbols": self.symbols,
             "from": int(
@@ -69,19 +69,23 @@ class Command(BaseCommand):
             for history in liquidation.get("history"):
                 if long := history.get("l"):
                     if long > 100:
-                        print(Liquidation.objects.update_or_create(
-                            symbol=liquidation["symbol"],
-                            datetime=datetime.fromtimestamp(history["t"]),
-                            side="LONG",
-                            amount=long,
-                            timeframe=options["interval"],
-                        ))
+                        print(
+                            Liquidation.objects.update_or_create(
+                                symbol=liquidation["symbol"],
+                                datetime=datetime.fromtimestamp(history["t"]),
+                                side="LONG",
+                                amount=long,
+                                timeframe=options["interval"],
+                            )
+                        )
                 if short := history.get("s"):
                     if short > 100:
-                        print(Liquidation.objects.update_or_create(
-                            symbol=liquidation["symbol"],
-                            datetime=datetime.fromtimestamp(history["t"]),
-                            side="SHORT",
-                            amount=short,
-                            timeframe=options["interval"],
-                        ))
+                        print(
+                            Liquidation.objects.update_or_create(
+                                symbol=liquidation["symbol"],
+                                datetime=datetime.fromtimestamp(history["t"]),
+                                side="SHORT",
+                                amount=short,
+                                timeframe=options["interval"],
+                            )
+                        )
