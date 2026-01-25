@@ -4,7 +4,7 @@ from project.apps.core.models import Position
 
 
 SUCCESS_TEXT = "text-success fw-bold"
-MINIMUM_SUCCESS_PERCENTAGE = 22
+MINIMUM_SUCCESS_PERCENTAGE = 35
 
 
 class PositionTable(tables.Table):
@@ -49,8 +49,7 @@ class WhatIfPositionTable(PositionTable):
         model = Position
         fields = (
             "id",
-            "candles_before_entry",
-            "liquidation_datetime",
+            "amount",
             "start",
             "side",
             "what_if_returns",

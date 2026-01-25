@@ -48,15 +48,35 @@
             </li>
             <li class="nav-item">
               <a
+                class="nav-link {% if request.resolver_match.url_name == 'positions_what_if_atr' %}active{% endif %}"
+                href="{% url 'positions_what_if_atr' %}"
+                >What If ATR</a
+              >
+            <li class="nav-item">
+              <a
+                class="nav-link {% if request.resolver_match.url_name == 'positions_what_if_algorithm' %}active{% endif %}"
+                href="{% url 'positions_what_if_algorithm' %}"
+                >What If Algorithm</a
+              >
+            </li>
+            <li class="nav-item">
+              <a
                 class="nav-link {% if request.resolver_match.url_name == 'positions_what_if_rsi' %}active{% endif %}"
                 href="{% url 'positions_what_if_rsi' %}"
                 >What If RSI</a
               >
             <li class="nav-item">
               <a
-                class="nav-link {% if request.resolver_match.url_name == 'positions_what_if_per_hour' %}active{% endif %}"
-                href="{% url 'positions_what_if_per_hour' %}"
-                >What If Per Hour</a
+                class="nav-link {% if request.resolver_match.url_name == 'positions_what_if_per_hour_by_entry' %}active{% endif %}"
+                href="{% url 'positions_what_if_per_hour_by_entry' %}"
+                >What If Per Hour By Entry</a
+              >
+            </li>
+            <li class="nav-item">
+              <a
+                class="nav-link {% if request.resolver_match.url_name == 'positions_what_if_per_hour_by_liquidation' %}active{% endif %}"
+                href="{% url 'positions_what_if_per_hour_by_liquidation' %}"
+                >What If Per Hour By Liquidation</a
               >
             </li>
           </ul>

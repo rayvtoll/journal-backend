@@ -1,7 +1,9 @@
+import os
 from typing import Tuple
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
 import random
+import pandas as pd
 import seaborn as sns
 
 from django.db.models import QuerySet, Q
@@ -9,7 +11,8 @@ from django.utils import timezone
 from django.views.generic.edit import FormView
 
 from project.apps.core.filters import PositionFilterSet
-from project.apps.core.forms import WhatIfForm
+from project.apps.core.forms import WhatIfAlgorithmForm
+from project.apps.core.helpers import python_weekday_to_django_weekday
 from project.apps.core.models import Position, OHLCV
 from project.apps.core.tables import WhatIfPositionTable
 
@@ -96,16 +99,16 @@ def process_tp(
     return tp_finished, amount
 
 
-class PositionWhatIfView(FormView):
+class PositionWhatIfAlgorithmView(FormView):
     """List view for positions with table and filter functionality."""
 
     template_name = "core/what_if.html"
     model = Position
     table_class = WhatIfPositionTable
     filterset_class = PositionFilterSet
-    form_class = WhatIfForm
+    form_class = WhatIfAlgorithmForm
 
-    def form_valid(self, form: WhatIfForm):
+    def form_valid(self, form: WhatIfAlgorithmForm):
         plt.rcParams["axes.prop_cycle"] = plt.cycler(color=COLOR_LIST)
         sns.set_theme(**SNS_THEME)
         sns.set_context(
@@ -118,9 +121,7 @@ class PositionWhatIfView(FormView):
         )
 
         positions: QuerySet[Position] = self.model.objects.exclude(
-            candles_before_entry__in=form.cleaned_data[
-                "candles_before_entry_not"
-            ]  # 1,10,11,12,13,
+            candles_before_entry__in=form.cleaned_data["candles_before_entry_not"]
         )
         positions = positions.filter(
             Q(
@@ -134,31 +135,22 @@ class PositionWhatIfView(FormView):
                 ],
             )
         ).distinct()
-        positions = positions.filter(timeframe="5m")
+        positions = positions.filter(
+            timeframe="5m",
+            liquidation_datetime__week_day__in=[2, 3, 4, 5, 6],  # monday-friday
+        )
         if strategy_types := form.cleaned_data["strategy_types"]:
             positions = positions.filter(strategy_type__in=strategy_types)
         if start_date_gte := form.cleaned_data["start_date_gte"]:
-            positions = positions.filter(start__gte=start_date_gte)
+            positions = positions.filter(liquidation_datetime__gte=start_date_gte)
         if start_date_lt := form.cleaned_data["start_date_lt"]:
-            positions = positions.filter(start__lt=start_date_lt)
-        if entry_week_days := form.cleaned_data["entry_week_days"]:
-            positions = positions.filter(start__week_day__in=entry_week_days)
-        if entry_hours := form.cleaned_data["entry_hours"]:
-            positions = positions.filter(start__hour__in=entry_hours)
-        if liquidation_hours := form.cleaned_data["liquidation_hours"]:
-            positions = positions.filter(
-                liquidation_datetime__hour__in=liquidation_hours
-            )
-        if liquidation_week_days := form.cleaned_data["liquidation_week_days"]:
-            positions = positions.filter(
-                liquidation_datetime__week_day__in=liquidation_week_days
-            )
+            positions = positions.filter(liquidation_datetime__lt=start_date_lt)
         if min_liq := form.cleaned_data.get("min_liquidation_amount"):
             positions = positions.filter(liquidation_amount__gte=min_liq)
         if max_liq := form.cleaned_data.get("max_liquidation_amount"):
             positions = positions.filter(liquidation_amount__lte=max_liq)
 
-        positions = positions.order_by("start")
+        positions = positions.order_by("liquidation_datetime")
 
         returns = []
         dates = []
@@ -166,6 +158,7 @@ class PositionWhatIfView(FormView):
         wins = 0
         losses = 0
         win_streak = WinStreak()
+        sl: float = 1.0
         sl_to_entry: float = form.cleaned_data["sl_to_entry"]
         use_tp1: bool = form.cleaned_data["use_tp1"]
         tp1: float = form.cleaned_data["tp1"]
@@ -193,22 +186,30 @@ class PositionWhatIfView(FormView):
 
         object_list: list[Position] = []
         for position in positions:
-            #     if not position.moving_average_50 or not position.liquidation_closing_price:
-            #         continue
-            #     if position.moving_average_50:
-            #         if position.side == Position._PostionSideChoices.LONG:
-            #             if position.liquidation_closing_price > position.moving_average_50:
-            #                 continue
-            #         if position.side == Position._PostionSideChoices.SHORT:
-            #             if position.liquidation_closing_price < position.moving_average_50:
-            #                 continue
-            match position.strategy_type:
-                case "reversed":
-                    sl: float = form.cleaned_data["reversed_sl"]
-                    tp: float = form.cleaned_data["reversed_tp"]
-                case "live" | _:
-                    sl: float = form.cleaned_data["live_sl"]
-                    tp: float = form.cleaned_data["live_tp"]
+            try:
+                algorithm_input: pd.DataFrame = pd.read_csv(
+                    f"data/{position.start.date().replace(day=1)}-algorithm_input.csv"
+                )
+            except:
+                file_names = os.listdir("data/")
+                file_names.sort()
+                last_file_name = file_names[-1]
+                algorithm_input: pd.DataFrame = pd.read_csv(f"data/{last_file_name}")
+            hour = position.liquidation_datetime.hour
+            trade: bool = False
+            tp: float = 0.0
+            weight: float = 0.0
+            for row in algorithm_input.itertuples():
+                if row.hour_of_the_day == hour:
+                    trade, tp, weight = (
+                        row.trade,
+                        row.tp_percentage,
+                        row.position_size_weighted,
+                    )
+
+            if not trade:
+                continue
+
             position.what_if_returns = 0
             use_sl_to_entry: bool = form.cleaned_data["use_sl_to_entry"]
             iso_datetime = (
@@ -239,7 +240,8 @@ class PositionWhatIfView(FormView):
                     (total_returns if compound else INITIAL_CAPITAL)
                     / sl
                     / position.entry_price
-                    * percentage_per_trade,
+                    * percentage_per_trade
+                    * weight,
                     4,
                 )
                 amount = position.amount
@@ -678,7 +680,7 @@ class PositionWhatIfView(FormView):
             self.get_context_data(
                 img=img,
                 form=form,
-                ratio=(wins / (wins + losses) * 100) if wins and losses else 0,
+                ratio=(wins / (wins + losses) * 100) if wins else 0,
                 wins=wins,
                 losses=losses,
                 nr_of_trades=wins + losses,
@@ -687,8 +689,15 @@ class PositionWhatIfView(FormView):
                 reward_per_trade=(
                     round(
                         (
-                            ((total_returns / INITIAL_CAPITAL) ** (1 / (wins + losses)))
-                            - 1
+                            (
+                                (
+                                    (total_returns / INITIAL_CAPITAL)
+                                    ** (1 / (wins + losses))
+                                )
+                                - 1
+                            )
+                            if (wins or losses)
+                            else 0
                         )
                         * 100,
                         2,

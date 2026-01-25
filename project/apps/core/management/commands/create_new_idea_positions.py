@@ -46,6 +46,14 @@ class Command(BaseCommand):
         )
 
         for liquidation in liquidations:
+            # calculate 50 moving average value at liquidation time
+            candles_for_ma50 = OHLCV.objects.filter(
+                datetime__lt=liquidation["datetime"], timeframe="5m"
+            ).order_by("-datetime")[:50]
+            if len(candles_for_ma50) == 50:
+                ma50 = round(sum(candle.close for candle in candles_for_ma50) / 50, 1)
+            else:
+                ma50 = None
 
             # liquidation amount threshold
             if liquidation["total_amount"] < 100:
@@ -68,64 +76,73 @@ class Command(BaseCommand):
             if not first_candles_after_liquidation.first():
                 continue
 
-            candles_before_entry = 0
+            confirmation_candles = 0
             for i, candle in enumerate(first_candles_after_liquidation, start=1):
                 if (
                     liquidation["side"] == "LONG"
                     and candle.close > liquidation_candle.high
                 ):
                     confirmation_candle = candle
-                    candles_before_entry = i
+                    confirmation_candles = i
                     break
                 if (
                     liquidation["side"] == "SHORT"
                     and candle.close < liquidation_candle.low
                 ):
                     confirmation_candle = candle
-                    candles_before_entry = i
+                    confirmation_candles = i
                     break
 
-            if not candles_before_entry:
+            if not confirmation_candles:
                 continue
 
             candles_after_liquidation = OHLCV.objects.filter(
                 datetime__gt=confirmation_candle.datetime,
                 timeframe="5m",
             ).order_by("datetime")
-            for candle in candles_after_liquidation:
+            for candles_before_entry, candle in enumerate(
+                candles_after_liquidation, start=1
+            ):
                 if candle.close > confirmation_candle.close * 1.005:
-                    print(
-                        Position.objects.get_or_create(
-                            liquidation_datetime=liquidation["datetime"],
-                            start=candle.datetime + timedelta(minutes=5),
-                            side=Position._PostionSideChoices.LONG,
-                            amount=0.0001,
-                            strategy_type=(
-                                "live" if liquidation["side"] == "LONG" else "reversed"
-                            ),
-                            candles_before_entry=candles_before_entry,
-                            liquidation_amount=liquidation["total_amount"],
-                            nr_of_liquidations=liquidation["total_nr_of_liquidations"],
-                            entry_price=candle.close * 0.9999,
-                            timeframe="5m",
-                        )
+                    position, created = Position.objects.get_or_create(
+                        liquidation_datetime=liquidation["datetime"],
+                        start=candle.datetime + timedelta(minutes=5),
+                        side=Position._PostionSideChoices.LONG,
+                        amount=0.0001,
+                        strategy_type=(
+                            "live" if liquidation["side"] == "LONG" else "reversed"
+                        ),
+                        confirmation_candles=confirmation_candles,
+                        candles_before_entry=candles_before_entry,
+                        liquidation_amount=liquidation["total_amount"],
+                        nr_of_liquidations=liquidation["total_nr_of_liquidations"],
+                        timeframe="5m",
                     )
+                    position.moving_average_50 = ma50
+                    position.liquidation_closing_price = liquidation_candle.close
+                    position.entry_price = round(candle.close * 1.0001, 1)
+                    position.save()
+                    print(created, position)
                     break
                 if candle.close < confirmation_candle.close * 0.995:
-                    print(
-                        Position.objects.get_or_create(
-                            liquidation_datetime=liquidation["datetime"],
-                            start=candle.datetime + timedelta(minutes=5),
-                            side=Position._PostionSideChoices.SHORT,
-                            amount=0.0001,
-                            strategy_type=(
-                                "live" if liquidation["side"] == "SHORT" else "reversed"
-                            ),
-                            candles_before_entry=candles_before_entry,
-                            liquidation_amount=liquidation["total_amount"],
-                            nr_of_liquidations=liquidation["total_nr_of_liquidations"],
-                            entry_price=candle.close * 1.0001,
-                            timeframe="5m",
-                        )
+
+                    position, created = Position.objects.get_or_create(
+                        liquidation_datetime=liquidation["datetime"],
+                        start=candle.datetime + timedelta(minutes=5),
+                        side=Position._PostionSideChoices.SHORT,
+                        amount=0.0001,
+                        strategy_type=(
+                            "live" if liquidation["side"] == "SHORT" else "reversed"
+                        ),
+                        confirmation_candles=confirmation_candles,
+                        candles_before_entry=candles_before_entry,
+                        liquidation_amount=liquidation["total_amount"],
+                        nr_of_liquidations=liquidation["total_nr_of_liquidations"],
+                        timeframe="5m",
                     )
+                    position.moving_average_50 = ma50
+                    position.liquidation_closing_price = liquidation_candle.close
+                    position.entry_price = round(candle.close * 1.0001, 1)
+                    position.save()
+                    print(created, position)
                     break

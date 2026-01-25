@@ -79,7 +79,7 @@ class Command(BaseCommand):
                 and rsi_candles[-1].close > rsi_candles[-2].high
                 and rsi_candles[-2].low < rsi_candles[-3].low
             ):
-                candles_before_entry = 1
+                confirmation_candles = 1
 
             # Double confirming candle
             elif (
@@ -93,7 +93,7 @@ class Command(BaseCommand):
                 and candle.close > rsi_candles[-2].high
                 and rsi_candles[-2].low < rsi_candles[-3].low
             ):
-                candles_before_entry = 2
+                confirmation_candles = 2
 
             else:
                 rsi_candles.append(candle)
@@ -101,15 +101,17 @@ class Command(BaseCommand):
 
             before_entering_candles = OHLCV.objects.filter(
                 datetime__gt=rsi_candles[-2].datetime
-                + timedelta(minutes=5 * candles_before_entry),
+                + timedelta(minutes=5 * confirmation_candles),
                 timeframe="5m",
             ).order_by("datetime")
-            for entering_candle in before_entering_candles:
+            for candles_before_entry, entering_candle in enumerate(
+                before_entering_candles, start=1
+            ):
                 if (
                     entering_candle.close
                     > (
                         candle.close
-                        if candles_before_entry == 2
+                        if confirmation_candles == 2
                         else rsi_candles[-1].close
                     )
                     * 1.005
@@ -121,6 +123,7 @@ class Command(BaseCommand):
                             side=Position._PostionSideChoices.LONG,
                             amount=0.0001,
                             strategy_type=("rsi_live" if rsi <= 30 else "rsi_reversed"),
+                            confirmation_candles=confirmation_candles,
                             candles_before_entry=candles_before_entry,
                             liquidation_amount=0,
                             nr_of_liquidations=0,
@@ -133,7 +136,7 @@ class Command(BaseCommand):
                     entering_candle.close
                     < (
                         candle.close
-                        if candles_before_entry == 2
+                        if confirmation_candles == 2
                         else rsi_candles[-1].close
                     )
                     * 0.995
@@ -145,6 +148,7 @@ class Command(BaseCommand):
                             side=Position._PostionSideChoices.SHORT,
                             amount=0.0001,
                             strategy_type=("rsi_live" if rsi >= 70 else "rsi_reversed"),
+                            confirmation_candles=confirmation_candles,
                             candles_before_entry=candles_before_entry,
                             liquidation_amount=0,
                             nr_of_liquidations=0,

@@ -96,7 +96,7 @@ def process_tp(
     return tp_finished, amount
 
 
-class PositionWhatIfView(FormView):
+class PositionWhatIfATRView(FormView):
     """List view for positions with table and filter functionality."""
 
     template_name = "core/what_if.html"
@@ -106,6 +106,7 @@ class PositionWhatIfView(FormView):
     form_class = WhatIfForm
 
     def form_valid(self, form: WhatIfForm):
+        atr_average_list: list = []
         plt.rcParams["axes.prop_cycle"] = plt.cycler(color=COLOR_LIST)
         sns.set_theme(**SNS_THEME)
         sns.set_context(
@@ -193,35 +194,50 @@ class PositionWhatIfView(FormView):
 
         object_list: list[Position] = []
         for position in positions:
-            #     if not position.moving_average_50 or not position.liquidation_closing_price:
-            #         continue
-            #     if position.moving_average_50:
-            #         if position.side == Position._PostionSideChoices.LONG:
-            #             if position.liquidation_closing_price > position.moving_average_50:
-            #                 continue
-            #         if position.side == Position._PostionSideChoices.SHORT:
-            #             if position.liquidation_closing_price < position.moving_average_50:
-            #                 continue
-            match position.strategy_type:
-                case "reversed":
-                    sl: float = form.cleaned_data["reversed_sl"]
-                    tp: float = form.cleaned_data["reversed_tp"]
-                case "live" | _:
-                    sl: float = form.cleaned_data["live_sl"]
-                    tp: float = form.cleaned_data["live_tp"]
-            position.what_if_returns = 0
-            use_sl_to_entry: bool = form.cleaned_data["use_sl_to_entry"]
-            iso_datetime = (
+            iso_datetime_str = (
                 f"{position.start.year}-"
                 f"{position.start.month:02d}-"
                 f"{position.start.day:02d} "
                 f"{position.start.hour:02d}:{position.start.minute:02d}:00"
             )
-            ohlcv_s = OHLCV.objects.filter(
-                datetime__gte=timezone.datetime.fromisoformat(iso_datetime),
-                datetime__lt=position.start + timezone.timedelta(days=28),
+            iso_datetime = timezone.datetime.fromisoformat(iso_datetime_str)
+            # match position.strategy_type:
+            #     case "reversed":
+            #         sl: float = form.cleaned_data["reversed_sl"]
+            #         tp: float = form.cleaned_data["reversed_tp"]
+            #     case "live" | _:
+            #         sl: float = form.cleaned_data["live_sl"]
+            #         tp: float = form.cleaned_data["live_tp"]
+            atr_candles = OHLCV.objects.filter(
+                datetime__gte=iso_datetime - timezone.timedelta(minutes=5 * 15),
+                datetime__lt=iso_datetime,
                 timeframe="5m",
             ).order_by("datetime")
+            atr_values = []
+            for i in range(1, len(atr_candles)):
+                current_candle = atr_candles[i]
+                previous_candle = atr_candles[i - 1]
+                tr = max(
+                    current_candle.high - current_candle.low,
+                    abs(current_candle.high - previous_candle.close),
+                    abs(current_candle.low - previous_candle.close),
+                )
+                atr_values.append(tr)
+            atr = (
+                sum(atr_values) / len(atr_values) / atr_candles.last().close * 100
+                if atr_values
+                else 0
+            )
+            tp: float = 2.0
+            sl: float = 1.0
+            position.what_if_returns = 0
+            use_sl_to_entry: bool = form.cleaned_data["use_sl_to_entry"]
+            ohlcv_s = OHLCV.objects.filter(
+                datetime__gte=iso_datetime,
+                datetime__lt=iso_datetime + timezone.timedelta(days=28),
+                timeframe="5m",
+            ).order_by("datetime")
+            tp_finished = False
             tp1_finished = False
             tp2_finished = False
             tp3_finished = False
@@ -247,6 +263,11 @@ class PositionWhatIfView(FormView):
                     position.amount * position.entry_price * BLOFIN_LIMIT_ORDER_FEE
                 )
                 position.what_if_returns -= fees_for_opening
+                trailing_sl_price = (
+                    position.entry_price * (1 - 1 / 100)  # trailing_sl
+                    if position.side == "LONG"
+                    else position.entry_price * (1 + 1 / 100)  # trailing_sl
+                )
                 if use_trailing_sl:
                     position_sl_price = (
                         position.entry_price * (1 - trailing_sl / 100)
@@ -394,31 +415,54 @@ class PositionWhatIfView(FormView):
                         amount=amount,
                     )
 
-                    # final TP
+                    # atr trailing final TP
+                    if tp_finished:
+                        if candle.low <= trailing_sl_price:
+                            position.closing_price = round(trailing_sl_price, 1)
+                            fees_for_closing = (
+                                amount
+                                * position.closing_price
+                                * BLOFIN_MARKET_ORDER_FEE
+                            )
+                            position.what_if_returns -= fees_for_closing
+                            local_win = (
+                                trailing_sl_price - position.entry_price
+                            ) * amount
+                            position.what_if_returns += local_win
+                            wins, losses, total_returns = process_position_what_if(
+                                wins,
+                                losses,
+                                win_streak,
+                                total_returns,
+                                position,
+                                object_list,
+                                returns,
+                                dates,
+                            )
+                            last_long_candle_datetime = candle.datetime
+                            break
+
+                        trailing_sl_price = max(
+                            trailing_sl_price,
+                            candle.high
+                            - (candle.high * (4 * atr / candle.close * 100) / 100),
+                        )
+
+                    # TP
                     if candle.high >= position.entry_price + (
                         position.entry_price * tp / 100
                     ):
-                        position.closing_price = round(
-                            position.entry_price + (position.entry_price * tp / 100), 1
-                        )
                         fees_for_closing = (
-                            amount * position.entry_price * BLOFIN_LIMIT_ORDER_FEE
+                            0.5
+                            * amount
+                            * (position.entry_price + (position.entry_price * tp / 100))
+                            * BLOFIN_LIMIT_ORDER_FEE
                         )
                         position.what_if_returns -= fees_for_closing
-                        local_win = (position.entry_price * tp / 100) * amount
+                        local_win = (position.entry_price * tp / 100) * amount * 0.5
                         position.what_if_returns += local_win
-                        wins, losses, total_returns = process_position_what_if(
-                            wins,
-                            losses,
-                            win_streak,
-                            total_returns,
-                            position,
-                            object_list,
-                            returns,
-                            dates,
-                        )
-                        last_long_candle_datetime = candle.datetime
-                        break
+                        tp_finished = True
+                        amount = amount * 0.5
 
                 if position.side == "SHORT":
 
@@ -540,31 +584,63 @@ class PositionWhatIfView(FormView):
                         amount=amount,
                     )
 
-                    # final TP
+                    # TP
                     if candle.low <= position.entry_price - (
                         position.entry_price * tp / 100
                     ):
-                        position.closing_price = round(
-                            position.entry_price - (position.entry_price * tp / 100), 1
-                        )
                         fees_for_closing = (
-                            amount * position.closing_price * BLOFIN_LIMIT_ORDER_FEE
+                            0.5
+                            * amount
+                            * (position.entry_price - (position.entry_price * tp / 100))
+                            * BLOFIN_LIMIT_ORDER_FEE
                         )
                         position.what_if_returns -= fees_for_closing
-                        local_wins = (position.entry_price * tp / 100) * amount
+                        local_wins = (position.entry_price * tp / 100) * amount * 0.5
                         position.what_if_returns += local_wins
-                        wins, losses, total_returns = process_position_what_if(
-                            wins,
-                            losses,
-                            win_streak,
-                            total_returns,
-                            position,
-                            object_list,
-                            returns,
-                            dates,
+                        tp_finished = True
+                        amount = amount * 0.5
+
+                    # atr trailing final TP
+                    if tp_finished:
+                        if candle.high >= trailing_sl_price:
+                            position.closing_price = round(trailing_sl_price, 1)
+                            fees_for_closing = (
+                                amount
+                                * position.closing_price
+                                * BLOFIN_MARKET_ORDER_FEE
+                            )
+                            position.what_if_returns -= fees_for_closing
+                            local_win = (
+                                position.entry_price - trailing_sl_price
+                            ) * amount
+                            position.what_if_returns += local_win
+                            wins, losses, total_returns = process_position_what_if(
+                                wins,
+                                losses,
+                                win_streak,
+                                total_returns,
+                                position,
+                                object_list,
+                                returns,
+                                dates,
+                            )
+                            last_short_candle_datetime = candle.datetime
+                            break
+
+                        trailing_sl_price = min(
+                            trailing_sl_price,
+                            candle.low
+                            + (candle.low * (4 * atr / candle.close * 100) / 100),
                         )
-                        last_short_candle_datetime = candle.datetime
-                        break
+
+                atr = (
+                    atr * 13
+                    + max(
+                        candle.high - candle.low,
+                        abs(candle.high - candle.close),
+                        abs(candle.low - candle.close),
+                    )
+                ) / 14
 
                 rsi_candles.append(candle)
                 if (

@@ -1,61 +1,58 @@
+import csv
+from datetime import timedelta
+import pandas as pd
 from typing import List
 
+from django.core.management.base import BaseCommand
 from django.db.models import QuerySet, Q
 from django.utils import timezone
-from django.views.generic.edit import FormView
 
-from project.apps.core.filters import PositionFilterSet
-from project.apps.core.forms import WhatIfPerHourForm
 from project.apps.core.models import Position, OHLCV
-from project.apps.core.tables import WhatIfPerHourPositionTable
 
 
-class PositionWhatIfPerHourBaseView(FormView):
-    """List view for positions with table and filter functionality."""
+class Command(BaseCommand):
+    help = "Get input data for algorithm."
 
-    template_name = "core/what_if_per_hour.html"
-    model = Position
-    table_class = WhatIfPerHourPositionTable
-    filterset_class = PositionFilterSet
-    form_class = WhatIfPerHourForm
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--year",
+            type=int,
+            help="year for which to create the algorithm input data",
+        )
+        parser.add_argument(
+            "--month",
+            type=int,
+            help="month for which to create the algorithm input data",
+        )
 
-    def prepped_form_valid(self, form, filter_dict: dict, hour_field: str):
-        if form.cleaned_data["start_date_lt"]:
-            until_date = form.cleaned_data["start_date_lt"]
-        else:
-            until_date = timezone.now().date()
-        table_rows: List[dict] = []
+    def run_algorithm_input(self, until_date: timezone.datetime, tp: int) -> List[dict]:
+        return_list: List[dict] = []
         for hour in range(24):
-            table_row = {"hour": hour}
+            return_row: dict = {"hour": hour}
             positions: QuerySet[Position] = (
-                self.model.objects.exclude(candles_before_entry__in=[1, 10, 11, 12, 13])
+                Position.objects.exclude(candles_before_entry=1)
                 .filter(
                     liquidation_amount__gte=2000,
                     timeframe="5m",
-                    **filter_dict,
-                    **{hour_field: hour},
+                    liquidation_datetime__gte=until_date - timedelta(days=365),
+                    liquidation_datetime__lt=until_date,
+                    liquidation_datetime__hour=hour,
+                    liquidation_datetime__week_day__in=[2, 3, 4, 5, 6],  # monday-friday
+                    confirmation_candles__in=[1, 2, 3],
                 )
-                .filter(
-                    Q(
-                        strategy_type="live",
-                        confirmation_candles=1,
-                    )
-                    | Q(
-                        strategy_type="reversed",
-                        confirmation_candles__in=[1, 2],
-                    )
-                )
+                # .filter(
+                #     Q(
+                #         strategy_type="live",
+                #         confirmation_candles=1,
+                #     )
+                #     | Q(
+                #         strategy_type="reversed",
+                #         confirmation_candles__in=[1, 2],
+                #     )
+                # )
                 .distinct()
+                .order_by("liquidation_datetime")
             )
-            if start_date_gte := form.cleaned_data["start_date_gte"]:
-                positions = positions.filter(liquidation_datetime__gte=start_date_gte)
-            if start_date_lt := form.cleaned_data["start_date_lt"]:
-                positions = positions.filter(liquidation_datetime__lt=start_date_lt)
-            if weekdays := form.cleaned_data["week_days"]:
-                positions = positions.filter(
-                    liquidation_datetime__week_day__in=weekdays
-                )
-            positions = positions.order_by("liquidation_datetime")
 
             total_wins = 0
             total_losses = 0
@@ -63,8 +60,7 @@ class PositionWhatIfPerHourBaseView(FormView):
             six_month_losses = 0
             three_month_wins = 0
             three_month_losses = 0
-            tp: float = form.cleaned_data[f"tp"]
-            sl: float = form.cleaned_data[f"sl"]
+            sl: float = 1
             for position in positions:
                 position.what_if_returns = 0
                 ohlcv_s = OHLCV.objects.filter(
@@ -154,41 +150,6 @@ class PositionWhatIfPerHourBaseView(FormView):
                             )
                             break
 
-            # nr of trades
-            table_row["total_nr_of_trades"] = total_wins + total_losses
-            table_row["six_month_nr_of_trades"] = six_month_wins + six_month_losses
-            table_row["three_month_nr_of_trades"] = (
-                three_month_wins + three_month_losses
-            )
-
-            # ratio
-            total_ratio = round(
-                ((total_wins / (total_wins + total_losses) * 100) if total_wins else 0),
-                1,
-            )
-            table_row["total_ratio"] = total_ratio
-            six_month_ratio = round(
-                (
-                    (six_month_wins / (six_month_wins + six_month_losses) * 100)
-                    if six_month_wins
-                    else 0
-                ),
-                1,
-            )
-            table_row["six_month_ratio"] = six_month_ratio
-            three_month_ratio = round(
-                (
-                    (three_month_wins / (three_month_wins + three_month_losses) * 100)
-                    if three_month_wins
-                    else 0
-                ),
-                1,
-            )
-            table_row["three_month_ratio"] = three_month_ratio
-            table_row["average_ratio"] = round(
-                (total_ratio + six_month_ratio + three_month_ratio) / 3, 1
-            )
-
             # nr of R's
             total_nr_of_r_s = round(
                 (tp / sl * total_wins)  # win R's
@@ -197,7 +158,6 @@ class PositionWhatIfPerHourBaseView(FormView):
                 - (total_losses * 0.1),
                 2,
             )
-            table_row["total_nr_of_r_s"] = total_nr_of_r_s
             six_month_nr_of_r_s = round(
                 (tp / sl * six_month_wins)
                 - (six_month_wins * 0.05)
@@ -205,7 +165,6 @@ class PositionWhatIfPerHourBaseView(FormView):
                 - (six_month_losses * 0.1),
                 2,
             )
-            table_row["six_month_nr_of_r_s"] = six_month_nr_of_r_s
             three_month_nr_of_r_s = round(
                 (tp / sl * three_month_wins)
                 - (three_month_wins * 0.05)
@@ -213,36 +172,87 @@ class PositionWhatIfPerHourBaseView(FormView):
                 - (three_month_losses * 0.1),
                 2,
             )
-            table_row["three_month_nr_of_r_s"] = three_month_nr_of_r_s
-            table_row["average_nr_of_r_s"] = round(
+            return_row[f"tp_{tp}"] = round(
                 (total_nr_of_r_s + six_month_nr_of_r_s + three_month_nr_of_r_s) / 3,
                 2,
             )
-            print(table_row)
-            table_rows.append(table_row)
+            return_row["trades"] = six_month_wins + six_month_losses
+            return_row["trades"] = total_losses + total_wins
+            return_list.append(return_row)
+        return return_list
 
-        return self.render_to_response(
-            self.get_context_data(
-                form=form,
-                table=self.table_class(table_rows),
-                title="What if per hour analysis",
+    def handle(self, *args, **options):
+        # get until_date
+        if options["year"] and options["month"]:
+            year = options["year"]
+            month = options["month"]
+            first_of_month = timezone.datetime(year, month, 1)
+            first_of_next_month = (first_of_month + timedelta(days=32)).replace(day=1)
+            until_date = (first_of_next_month - timedelta(days=1)).date()
+        else:
+            until_date = timezone.now().date() - timedelta(days=1)
+
+        day_dataframe = pd.DataFrame()
+        for tp in range(1, 6):  # TP 1%-5%
+            result = self.run_algorithm_input(until_date, tp)
+            tp_dataframe = pd.DataFrame(result)
+            if day_dataframe.empty:
+                day_dataframe = tp_dataframe[["hour", "trades", f"tp_{tp}"]]
+            else:
+                day_dataframe = pd.merge(
+                    day_dataframe,
+                    tp_dataframe[["hour", f"tp_{tp}"]],
+                    on="hour",
+                )
+        # write to csv
+        day_dataframe.to_csv(f"data/{until_date}.csv", index=False)
+
+        # write csv header
+        with open(
+            f"data/{until_date + timedelta(days=1)}-algorithm_input.csv",
+            "w",
+            newline="",
+        ) as f:
+            writer = csv.writer(f)
+            writer.writerow(
+                [
+                    "hour_of_the_day",
+                    "trade",
+                    "position_size_weighted",
+                    "tp_percentage",
+                ]
             )
-        )
 
+        df = pd.read_csv(f"data/{until_date}.csv")
+        for row in df.itertuples(index=False):
+            # select tp percentage column with the highest value and save the column name
+            tp_percentage = max(
+                [getattr(row, f"tp_{i}") for i in range(1, 6)],
+            )
 
-class PositionWhatIfPerHourByLiquidationView(PositionWhatIfPerHourBaseView):
-    def form_valid(self, form):
-        return self.prepped_form_valid(
-            form=form,
-            filter_dict={"start__hour__in": form.cleaned_data["hours"]},
-            hour_field="liquidation_datetime__hour",
-        )
+            # below 10 trades weighs less
+            nr_of_trades_weighht = min((row.trades / 10) if row.trades else 0.0, 1.0)
 
+            # below 10 R return weighs less
+            r_weight = min(tp_percentage / 10, 1.0) if tp_percentage > 0.0 else 0.0
 
-class PositionWhatIfPerHourByEntryView(PositionWhatIfPerHourBaseView):
-    def form_valid(self, form):
-        return self.prepped_form_valid(
-            form=form,
-            filter_dict={"liquidation_datetime__hour__in": form.cleaned_data["hours"]},
-            hour_field="start__hour",
-        )
+            # round to 2 decimal places
+            weighted = round(min(nr_of_trades_weighht, r_weight), 2)
+
+            trade = True if tp_percentage > 1 else False
+            highest_tp_column = f"{[getattr(row, f"tp_{i}") for i in range(1, 6)].index(tp_percentage) + 1}"
+
+            with open(
+                f"data/{until_date + timedelta(days=1)}-algorithm_input.csv",
+                "a",
+                newline="",
+            ) as f:
+                writer = csv.writer(f)
+                writer.writerow(
+                    [
+                        row.hour,
+                        "true" if trade else "false",
+                        weighted if trade else None,
+                        highest_tp_column if trade else None,
+                    ]
+                )

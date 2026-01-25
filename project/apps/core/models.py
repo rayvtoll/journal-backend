@@ -42,6 +42,7 @@ class Position(models.Model):
     take_profit_price = models.FloatField(null=True, blank=True)
     stop_loss_price = models.FloatField(null=True, blank=True)
     amount = models.FloatField()
+    confirmation_candles = models.IntegerField(null=True, blank=True)
     candles_before_entry = models.IntegerField(null=True, blank=True)
     liquidation_amount = models.IntegerField(null=True, blank=True)
     nr_of_liquidations = models.IntegerField(null=True, blank=True)
@@ -64,6 +65,8 @@ class Position(models.Model):
         default=_TimeFrameChoices.FIVE_MINUTES,
     )
     symbol = models.CharField(max_length=20, default="BTCUSDT")
+    liquidation_closing_price = models.FloatField(null=True, blank=True)
+    moving_average_50 = models.FloatField(null=True, blank=True)
 
     @property
     def admin_url(self):
