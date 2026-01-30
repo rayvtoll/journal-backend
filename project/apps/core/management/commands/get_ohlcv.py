@@ -22,7 +22,10 @@ async def get_closing_data(
             symbol="BTC/USDT:USDT",
             timeframe=timeframe,
             since=int(
-                (timezone.now() - timezone.timedelta(days=days)).timestamp() * 1000
+                (timezone.now() - timezone.timedelta(days=days))
+                .replace(hour=0, minute=0, second=0, microsecond=0)
+                .timestamp()
+                * 1000
             ),
             limit=int(24 * 60 / 5) if timeframe == "5m" else (24 * 60),
         )
@@ -37,7 +40,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--from-days-ago",
             type=int,
-            default=10,
+            default=1,
             help="Number of days ago to start fetching data from",
         )
         parser.add_argument(

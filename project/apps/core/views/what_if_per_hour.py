@@ -28,7 +28,7 @@ class PositionWhatIfPerHourBaseView(FormView):
         for hour in range(24):
             table_row = {"hour": hour}
             positions: QuerySet[Position] = (
-                self.model.objects.exclude(candles_before_entry__in=[1, 10, 11, 12, 13])
+                self.model.objects.exclude(candles_before_entry__in=[1])
                 .filter(
                     liquidation_amount__gte=2000,
                     timeframe="5m",
@@ -215,7 +215,12 @@ class PositionWhatIfPerHourBaseView(FormView):
             )
             table_row["three_month_nr_of_r_s"] = three_month_nr_of_r_s
             table_row["average_nr_of_r_s"] = round(
-                (total_nr_of_r_s + six_month_nr_of_r_s + three_month_nr_of_r_s) / 3,
+                (
+                    total_nr_of_r_s
+                    + (six_month_nr_of_r_s * 2)
+                    + (three_month_nr_of_r_s * 4)
+                )
+                / 3,
                 2,
             )
             print(table_row)

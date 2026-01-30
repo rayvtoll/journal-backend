@@ -21,7 +21,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--from-days-ago",
             type=int,
-            default=10,
+            default=1,
             help="Number of days ago to start fetching data from",
         )
         parser.add_argument(

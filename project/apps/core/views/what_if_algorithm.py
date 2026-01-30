@@ -12,7 +12,6 @@ from django.views.generic.edit import FormView
 
 from project.apps.core.filters import PositionFilterSet
 from project.apps.core.forms import WhatIfAlgorithmForm
-from project.apps.core.helpers import python_weekday_to_django_weekday
 from project.apps.core.models import Position, OHLCV
 from project.apps.core.tables import WhatIfPositionTable
 
@@ -138,6 +137,14 @@ class PositionWhatIfAlgorithmView(FormView):
         positions = positions.filter(
             timeframe="5m",
             liquidation_datetime__week_day__in=[2, 3, 4, 5, 6],  # monday-friday
+            liquidation_datetime__hour__in=[
+                2,
+                3,
+                4,
+                14,
+                15,
+                16,
+            ],  # 2-4am and 2-4pm
         )
         if strategy_types := form.cleaned_data["strategy_types"]:
             positions = positions.filter(strategy_type__in=strategy_types)
@@ -150,7 +157,7 @@ class PositionWhatIfAlgorithmView(FormView):
         if max_liq := form.cleaned_data.get("max_liquidation_amount"):
             positions = positions.filter(liquidation_amount__lte=max_liq)
 
-        positions = positions.order_by("liquidation_datetime")
+        positions = positions.distinct().order_by("liquidation_datetime")
 
         returns = []
         dates = []
@@ -187,11 +194,29 @@ class PositionWhatIfAlgorithmView(FormView):
         object_list: list[Position] = []
         for position in positions:
             try:
-                algorithm_input: pd.DataFrame = pd.read_csv(
-                    f"data/{position.start.date().replace(day=1)}-algorithm_input.csv"
-                )
+                try:
+                    algorithm_input: pd.DataFrame = pd.read_csv(
+                        f"data/algorithm_input-{position.liquidation_datetime.date()}-{position.strategy_type}.csv"
+                    )
+                except:
+                    algorithm_input: pd.DataFrame = pd.read_csv(
+                        f"data/algorithm_input-{position.liquidation_datetime.date().replace(day=2)}-{position.strategy_type}.csv"
+                    )
             except:
                 file_names = os.listdir("data/")
+                file_names = [
+                    name
+                    for name in os.listdir("data/")
+                    if os.path.isfile(os.path.join("data/", name))
+                ]
+                file_names = [
+                    name
+                    for name in file_names
+                    if (
+                        name.startswith("algorithm_input-")
+                        and position.strategy_type in name
+                    )
+                ]
                 file_names.sort()
                 last_file_name = file_names[-1]
                 algorithm_input: pd.DataFrame = pd.read_csv(f"data/{last_file_name}")
