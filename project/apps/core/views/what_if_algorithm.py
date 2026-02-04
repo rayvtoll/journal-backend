@@ -165,7 +165,6 @@ class PositionWhatIfAlgorithmView(FormView):
         wins = 0
         losses = 0
         win_streak = WinStreak()
-        sl: float = 1.0
         sl_to_entry: float = form.cleaned_data["sl_to_entry"]
         use_tp1: bool = form.cleaned_data["use_tp1"]
         tp1: float = form.cleaned_data["tp1"]
@@ -200,7 +199,7 @@ class PositionWhatIfAlgorithmView(FormView):
                     )
                 except:
                     algorithm_input: pd.DataFrame = pd.read_csv(
-                        f"data/algorithm_input-{position.liquidation_datetime.date().replace(day=2)}-{position.strategy_type}.csv"
+                        f"data/algorithm_input-{position.liquidation_datetime.date().replace(day=1)}-{position.strategy_type}.csv"
                     )
             except:
                 file_names = os.listdir("data/")
@@ -223,13 +222,15 @@ class PositionWhatIfAlgorithmView(FormView):
             hour = position.liquidation_datetime.hour
             trade: bool = False
             tp: float = 0.0
+            sl: float = 0.0
             weight: float = 0.0
             for row in algorithm_input.itertuples():
-                if row.hour_of_the_day == hour:
-                    trade, tp, weight = (
+                if row.hour == hour:
+                    trade, weight, tp, sl = (
                         row.trade,
-                        row.tp_percentage,
-                        row.position_size_weighted,
+                        row.weight,
+                        row.tp,
+                        row.sl,
                     )
 
             if not trade:

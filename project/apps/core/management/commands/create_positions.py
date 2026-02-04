@@ -119,7 +119,7 @@ class Command(BaseCommand):
                     )
                     position.moving_average_50 = ma50
                     position.liquidation_closing_price = liquidation_candle.close
-                    position.entry_price = round(candle.close * 1.0001, 1)
+                    position.entry_price = round(candle.close * 0.9999, 1)
                     position.save()
                     print(created, position)
                     break

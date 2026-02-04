@@ -8,9 +8,8 @@ from project.apps.core.views import (
     PositionWhatIfPerHourByLiquidationView,
     PositionWhatIfRSIView,
     PositionWhatIfATRView,
+    PositionWhatIfAlgorithmView,
 )
-from project.apps.core.views.what_if_algorithm import PositionWhatIfAlgorithmView
-
 
 urlpatterns = [
     path("admin/", admin.site.urls),
