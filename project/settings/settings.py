@@ -95,7 +95,7 @@ AUTH_USER_MODEL = "core.User"
 LOGIN_URL = "admin:login"
 
 # Caching
-USE_CACHE = config("USE_CACHE", cast=bool, default=True)
+USE_CACHE = config("USE_CACHE", cast=bool, default=False)
 if USE_CACHE:
     CACHES = {
         "default": {
