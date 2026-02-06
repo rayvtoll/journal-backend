@@ -4,12 +4,14 @@ from django.conf import settings
 import pandas as pd
 from typing import List
 
-from django.core.cache import cache
 from django.core.management.base import BaseCommand
 from django.db.models import QuerySet
 from django.utils import timezone
 
 from project.apps.core.models import Position, OHLCV
+
+if settings.USE_CACHE:
+    from django.core.cache import cache
 
 
 x10_TP_SL_PAIRS = [
@@ -63,7 +65,7 @@ class Command(BaseCommand):
             timezone.datetime(until_date.year, until_date.month, until_date.day),
         )
         cache_key = f"p{position.id}-{position.strategy_type}-l{last_candle.strftime('%Y%m%d')}-tp{int(tp * 10)}-sl{int(sl * 10)}"
-        if response_tuple := cache.get(cache_key):
+        if settings.USE_CACHE and (response_tuple := cache.get(cache_key)):
             return response_tuple
         ohlcv_s = OHLCV.objects.filter(
             datetime__gte=position.start,
@@ -159,7 +161,8 @@ class Command(BaseCommand):
             three_month_wins,
             three_month_losses,
         )
-        cache.set(key=cache_key, value=return_tuple)
+        if settings.USE_CACHE:
+            cache.set(key=cache_key, value=return_tuple)
         return return_tuple
 
     def run_algorithm_input(

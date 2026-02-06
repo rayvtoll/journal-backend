@@ -95,18 +95,20 @@ AUTH_USER_MODEL = "core.User"
 LOGIN_URL = "admin:login"
 
 # Caching
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
-        "LOCATION": "/tmp/django_cache",
-        "TIMEOUT": config(
-            "CACHE_TIMEOUT", cast=int, default=60 * 60 * 24 * 7  # 7 days
-        ),
-        "OPTIONS": {
-            "MAX_ENTRIES": 1000000,
-        },
+USE_CACHE = config("USE_CACHE", cast=bool, default=True)
+if USE_CACHE:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
+            "LOCATION": "/tmp/django_cache",
+            "TIMEOUT": config(
+                "CACHE_TIMEOUT", cast=int, default=60 * 60 * 24 * 7  # 7 days
+            ),
+            "OPTIONS": {
+                "MAX_ENTRIES": 1000000,
+            },
+        }
     }
-}
 
 ALGORITHM_EXPORT_PATH = config(
     "ALGORITHM_EXPORT_PATH", default=os.path.join(BASE_DIR, "data")
