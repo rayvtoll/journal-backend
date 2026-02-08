@@ -221,6 +221,7 @@ class PositionWhatIfView(FormView):
                 datetime__gte=timezone.datetime.fromisoformat(iso_datetime),
                 datetime__lt=position.start + timezone.timedelta(days=28),
                 timeframe="5m",
+                symbol="BTC/USDT:USDT",
             ).order_by("datetime")
             tp1_finished = False
             tp2_finished = False

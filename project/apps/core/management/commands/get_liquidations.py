@@ -36,12 +36,18 @@ class Command(BaseCommand):
             default=INTERVAL,
             help="Time interval for the data",
         )
+        parser.add_argument(
+            "--symbol",
+            type=str,
+            default="BTCUSD",
+            help="Symbol for the data",
+        )
 
     def get_params(self, **options) -> dict:
         """Returns the parameters for the request to the API"""
         now = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         return {
-            "symbols": self.symbols,
+            "symbols": self.get_symbols(**options),
             "from": int(
                 datetime.timestamp(now - timedelta(days=options["from_days_ago"]))
             ),
@@ -49,14 +55,15 @@ class Command(BaseCommand):
             "interval": options["interval"],
         }
 
-    @property
-    def symbols(self) -> list:
+    def get_symbols(self, **options) -> list:
         """Returns the list of symbols to request data for"""
         symbols = []
         for market in requests.get(
             url=FUTURE_MARKETS_URL, headers={"api_key": COINALYZE_SECRET_API_KEY}
         ).json():
-            if (symbol := market.get("symbol", "").upper()).startswith("BTCUSD"):
+            if (symbol := market.get("symbol", "").upper()).startswith(
+                options["symbol"]
+            ):
                 symbols.append(symbol)
         return ",".join(symbols)
 

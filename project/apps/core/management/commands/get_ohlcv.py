@@ -12,14 +12,14 @@ EXCHANGE = ccxt.binance()
 
 
 async def get_closing_data(
-    timeframe: str = "5m", from_days_ago: int = 10, to_days_ago: int = 0
+    symbol: str, timeframe: str, from_days_ago: int = 10, to_days_ago: int = 0
 ) -> List[dict]:
     """Asynchronously fetches closing data for a given position."""
 
     candles = []
     for days in range(from_days_ago, to_days_ago, -1):
         candles = candles + await EXCHANGE.fetch_ohlcv(
-            symbol="BTC/USDT:USDT",
+            symbol=symbol,
             timeframe=timeframe,
             since=int(
                 (timezone.now() - timezone.timedelta(days=days))
@@ -55,17 +55,26 @@ class Command(BaseCommand):
             default="5m",
             help="Timeframe for the OHLCV data",
         )
+        parser.add_argument(
+            "--symbol",
+            type=str,
+            default="BTC/USDT:USDT",
+            help="Trading pair symbol",
+        )
 
     def handle(self, *args, **options):
         print(options)
         candles = run(
             get_closing_data(
-                options["timeframe"], options["from_days_ago"], options["to_days_ago"]
+                options["symbol"],
+                options["timeframe"],
+                options["from_days_ago"],
+                options["to_days_ago"],
             )
         )
         for candle in candles:
             candle_defaults = {
-                "symbol": "BTC/USDT:USDT",
+                "symbol": options["symbol"],
                 "timeframe": options["timeframe"],
                 "datetime": timezone.datetime.fromtimestamp(candle[0] / 1000),
             }

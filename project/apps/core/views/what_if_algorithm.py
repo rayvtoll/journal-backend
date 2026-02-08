@@ -118,33 +118,19 @@ class PositionWhatIfAlgorithmView(FormView):
                 "axes.labelsize": 10,
             },
         )
-
+        symbol_convertor = {
+            "BTCUSDT": "BTC/USDT:USDT",
+            "ETHUSDT": "ETH/USDT:USDT",
+        }
         positions: QuerySet[Position] = self.model.objects.exclude(
             candles_before_entry__in=form.cleaned_data["candles_before_entry_not"]
         )
         positions = positions.filter(
-            Q(
-                strategy_type="live",
-                confirmation_candles__in=form.cleaned_data["live_confirmation_candles"],
-            )
-            | Q(
-                strategy_type="reversed",
-                confirmation_candles__in=form.cleaned_data[
-                    "reversed_confirmation_candles"
-                ],
-            )
+            confirmation_candles__in=form.cleaned_data["reversed_confirmation_candles"],
         ).distinct()
         positions = positions.filter(
             timeframe="5m",
             liquidation_datetime__week_day__in=[2, 3, 4, 5, 6],  # monday-friday
-            liquidation_datetime__hour__in=[
-                2,
-                3,
-                4,
-                14,
-                15,
-                16,
-            ],  # 2-4am and 2-4pm
         )
         if strategy_types := form.cleaned_data["strategy_types"]:
             positions = positions.filter(strategy_type__in=strategy_types)
@@ -156,6 +142,8 @@ class PositionWhatIfAlgorithmView(FormView):
             positions = positions.filter(liquidation_amount__gte=min_liq)
         if max_liq := form.cleaned_data.get("max_liquidation_amount"):
             positions = positions.filter(liquidation_amount__lte=max_liq)
+        if symbols := form.cleaned_data.get("symbols"):
+            positions = positions.filter(symbol__in=symbols)
 
         positions = positions.distinct().order_by("liquidation_datetime")
 
@@ -193,14 +181,9 @@ class PositionWhatIfAlgorithmView(FormView):
         object_list: list[Position] = []
         for position in positions:
             try:
-                try:
-                    algorithm_input: pd.DataFrame = pd.read_csv(
-                        f"data/algorithm_input-{position.liquidation_datetime.date()}-{position.strategy_type}.csv"
-                    )
-                except:
-                    algorithm_input: pd.DataFrame = pd.read_csv(
-                        f"data/algorithm_input-{position.liquidation_datetime.date().replace(day=1)}-{position.strategy_type}.csv"
-                    )
+                algorithm_input: pd.DataFrame = pd.read_csv(
+                    f"data/algorithm_input-{position.symbol}-{position.liquidation_datetime.date() - timezone.timedelta(days=position.liquidation_datetime.weekday())}-{position.strategy_type}.csv"
+                )
             except:
                 file_names = os.listdir("data/")
                 file_names = [
@@ -212,7 +195,7 @@ class PositionWhatIfAlgorithmView(FormView):
                     name
                     for name in file_names
                     if (
-                        name.startswith("algorithm_input-")
+                        name.startswith(f"algorithm_input-{position.symbol}-")
                         and position.strategy_type in name
                     )
                 ]
@@ -238,14 +221,10 @@ class PositionWhatIfAlgorithmView(FormView):
 
             position.what_if_returns = 0
             use_sl_to_entry: bool = form.cleaned_data["use_sl_to_entry"]
-            iso_datetime = (
-                f"{position.start.year}-"
-                f"{position.start.month:02d}-"
-                f"{position.start.day:02d} "
-                f"{position.start.hour:02d}:{position.start.minute:02d}:00"
-            )
+            position.start = position.start.replace(second=0, microsecond=0)
             ohlcv_s = OHLCV.objects.filter(
-                datetime__gte=timezone.datetime.fromisoformat(iso_datetime),
+                symbol=symbol_convertor.get(position.symbol),
+                datetime__gte=position.start,
                 datetime__lt=position.start + timezone.timedelta(days=28),
                 timeframe="5m",
             ).order_by("datetime")

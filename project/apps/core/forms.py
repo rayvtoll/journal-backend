@@ -15,9 +15,9 @@ class WhatIfForm(forms.Form):
     use_log_scale = forms.BooleanField(label="Use Log Scale", required=False)
     candles_before_entry_not = forms.MultipleChoiceField(
         label="Candles Before Entry not",
-        choices=[(i, i) for i in range(1, 51)],
+        choices=[(i, i) for i in range(1, 4)],
         widget=forms.CheckboxSelectMultiple,
-        initial=[1, 10, 11, 12, 13],
+        initial=[1],
         required=False,
     )
     live_confirmation_candles = forms.MultipleChoiceField(
@@ -139,13 +139,13 @@ class WhatIfRSIForm(forms.Form):
     use_log_scale = forms.BooleanField(label="Use Log Scale", required=False)
     live_candles_before_entry = forms.MultipleChoiceField(
         label="Candles Before Entry",
-        choices=[(i, i) for i in range(1, 12)],
+        choices=[(i, i) for i in range(1, 3)],
         widget=forms.CheckboxSelectMultiple,
         initial=[1],
     )
     reversed_candles_before_entry = forms.MultipleChoiceField(
         label="Reversed Candles Before Entry",
-        choices=[(i, i) for i in range(1, 12)],
+        choices=[(i, i) for i in range(1, 3)],
         widget=forms.CheckboxSelectMultiple,
         initial=[1, 2],
     )
@@ -229,6 +229,7 @@ class WhatIfRSIForm(forms.Form):
 
 
 class WhatIfAlgorithmForm(WhatIfForm):
+    live_confirmation_candles = None
     liquidation_hours = None
     liquidation_week_days = None
     entry_hours = None
@@ -237,6 +238,20 @@ class WhatIfAlgorithmForm(WhatIfForm):
     live_tp = None
     reversed_sl = None
     reversed_tp = None
+    strategy_types = forms.MultipleChoiceField(
+        label="Strategy Types",
+        choices=[
+            ("reversed", "Reversed"),
+        ],
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+    )
+    symbols = forms.MultipleChoiceField(
+        label="Symbols",
+        choices=[("BTCUSDT", "BTCUSDT"), ("ETHUSDT", "ETHUSDT")],
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+    )
 
 
 FORM_DAY_TOGETHER_CHOICES = [
