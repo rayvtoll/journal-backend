@@ -181,10 +181,16 @@ class PositionWhatIfAlgorithmView(FormView):
         object_list: list[Position] = []
         for position in positions:
             try:
-                algorithm_input: pd.DataFrame = pd.read_csv(
-                    f"data/algorithm_input-{position.symbol}-{position.liquidation_datetime.date() - timezone.timedelta(days=position.liquidation_datetime.weekday())}-{position.strategy_type}.csv"
-                )
+                try:
+                    algorithm_input: pd.DataFrame = pd.read_csv(
+                        f"data/algorithm_input-{position.symbol}-{position.liquidation_datetime.date()}-{position.strategy_type}-lvl2.csv"
+                    )
+                except:
+                    algorithm_input: pd.DataFrame = pd.read_csv(
+                        f"data/algorithm_input-{position.symbol}-{position.liquidation_datetime.date() - timezone.timedelta(days=position.liquidation_datetime.weekday())}-{position.strategy_type}-lvl2.csv"
+                    )
             except:
+                print("lvl2 error")
                 file_names = os.listdir("data/")
                 file_names = [
                     name
@@ -197,26 +203,27 @@ class PositionWhatIfAlgorithmView(FormView):
                     if (
                         name.startswith(f"algorithm_input-{position.symbol}-")
                         and position.strategy_type in name
+                        and name.endswith("-lvl2.csv")
                     )
                 ]
                 file_names.sort()
                 last_file_name = file_names[-1]
                 algorithm_input: pd.DataFrame = pd.read_csv(f"data/{last_file_name}")
             hour = position.liquidation_datetime.hour
-            trade: bool = False
+            trade_lvl2: bool = False
             tp: float = 0.0
             sl: float = 0.0
             weight: float = 0.0
             for row in algorithm_input.itertuples():
                 if row.hour == hour:
-                    trade, weight, tp, sl = (
-                        row.trade,
+                    weight, tp, sl, trade_lvl2 = (
                         row.weight,
                         row.tp,
                         row.sl,
+                        row.trade_lvl2,
                     )
 
-            if not trade:
+            if not trade_lvl2:
                 continue
 
             position.what_if_returns = 0

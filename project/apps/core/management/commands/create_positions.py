@@ -99,18 +99,6 @@ class Command(BaseCommand):
                 i for i in volume_candles_around_liquidation
             ]
 
-            # check if volume increased on the candle of liquidation compared to the
-            # previous candle
-            increased_volume = False
-            if (
-                volume_candles_around_liquidation[0].volume
-                < volume_candles_around_liquidation[1].volume
-            ):
-                increased_volume = True
-
-            if not increased_volume:
-                continue
-
             # first candle after liquidation
             first_candles_after_liquidation = volume_candles_around_liquidation[2:]
 
@@ -137,7 +125,7 @@ class Command(BaseCommand):
             candles_after_liquidation = OHLCV.objects.filter(
                 symbol=symbol_convertor.get("BTCUSD"),
                 datetime__gt=confirmation_candle.datetime,
-                datetime__lte=confirmation_candle.datetime + timedelta(hours=24),
+                datetime__lte=confirmation_candle.datetime + timedelta(days=7),
                 timeframe="5m",
             ).order_by("datetime")
             for candles_before_entry, candle in enumerate(
@@ -146,50 +134,90 @@ class Command(BaseCommand):
                 if candle.close > confirmation_candle.close * (
                     1 + (options["confirmation_distance"]) / 100
                 ):
-                    if liquidation["side"] == "LONG":
-                        break
+                    # if liquidation["side"] == "LONG" and confirmation_candles == 1:
+                    #     position, created = Position.objects.get_or_create(
+                    #         liquidation_datetime=liquidation["datetime"],
+                    #         start=candle.datetime + timedelta(minutes=5),
+                    #         side=Position._PostionSideChoices.LONG,
+                    #         amount=0.0001,
+                    #         symbol=options["symbol"] + "T",
+                    #         strategy_type="live",
+                    #         confirmation_candles=confirmation_candles,
+                    #         candles_before_entry=candles_before_entry,
+                    #         liquidation_amount=liquidation["total_amount"],
+                    #         nr_of_liquidations=liquidation["total_nr_of_liquidations"],
+                    #         timeframe="5m",
+                    #     )
+                    #     position.moving_average_50 = ma50
+                    #     position.liquidation_closing_price = liquidation_candle.close
+                    #     position.entry_price = round(candle.close * 0.9999, 1)
+                    #     position.save()
+                    #     print(created, position)
+                    #     break
 
-                    position, created = Position.objects.get_or_create(
-                        liquidation_datetime=liquidation["datetime"],
-                        start=candle.datetime + timedelta(minutes=5),
-                        side=Position._PostionSideChoices.LONG,
-                        amount=0.0001,
-                        symbol=options["symbol"] + "T",
-                        strategy_type="reversed",
-                        confirmation_candles=confirmation_candles,
-                        candles_before_entry=candles_before_entry,
-                        liquidation_amount=liquidation["total_amount"],
-                        nr_of_liquidations=liquidation["total_nr_of_liquidations"],
-                        timeframe="5m",
-                    )
-                    position.moving_average_50 = ma50
-                    position.liquidation_closing_price = liquidation_candle.close
-                    position.entry_price = round(candle.close * 0.9999, 1)
-                    position.save()
-                    print(created, position)
+                    if liquidation["side"] == "SHORT":
+                        position, created = Position.objects.get_or_create(
+                            liquidation_datetime=liquidation["datetime"],
+                            start=candle.datetime + timedelta(minutes=5),
+                            side=Position._PostionSideChoices.LONG,
+                            amount=0.0001,
+                            symbol=options["symbol"] + "T",
+                            strategy_type="reversed",
+                            confirmation_candles=confirmation_candles,
+                            candles_before_entry=candles_before_entry,
+                            liquidation_amount=liquidation["total_amount"],
+                            nr_of_liquidations=liquidation["total_nr_of_liquidations"],
+                            timeframe="5m",
+                        )
+                        position.moving_average_50 = ma50
+                        position.liquidation_closing_price = liquidation_candle.close
+                        position.entry_price = round(candle.close * 0.9999, 1)
+                        position.save()
+                        print(created, position)
+                        break
                     break
                 if candle.close < confirmation_candle.close * (
                     1 - (options["confirmation_distance"]) / 100
                 ):
-                    if liquidation["side"] == "SHORT":
-                        break
+                    # if liquidation["side"] == "SHORT" and confirmation_candles == 1:
+                    #     position, created = Position.objects.get_or_create(
+                    #         liquidation_datetime=liquidation["datetime"],
+                    #         start=candle.datetime + timedelta(minutes=5),
+                    #         side=Position._PostionSideChoices.SHORT,
+                    #         amount=0.0001,
+                    #         symbol=options["symbol"] + "T",
+                    #         strategy_type="live",
+                    #         confirmation_candles=confirmation_candles,
+                    #         candles_before_entry=candles_before_entry,
+                    #         liquidation_amount=liquidation["total_amount"],
+                    #         nr_of_liquidations=liquidation["total_nr_of_liquidations"],
+                    #         timeframe="5m",
+                    #     )
+                    #     position.moving_average_50 = ma50
+                    #     position.liquidation_closing_price = liquidation_candle.close
+                    #     position.entry_price = round(candle.close * 1.0001, 1)
+                    #     position.save()
+                    #     print(created, position)
+                    #     break
 
-                    position, created = Position.objects.get_or_create(
-                        liquidation_datetime=liquidation["datetime"],
-                        start=candle.datetime + timedelta(minutes=5),
-                        side=Position._PostionSideChoices.SHORT,
-                        amount=0.0001,
-                        symbol=options["symbol"] + "T",
-                        strategy_type="reversed",
-                        confirmation_candles=confirmation_candles,
-                        candles_before_entry=candles_before_entry,
-                        liquidation_amount=liquidation["total_amount"],
-                        nr_of_liquidations=liquidation["total_nr_of_liquidations"],
-                        timeframe="5m",
-                    )
-                    position.moving_average_50 = ma50
-                    position.liquidation_closing_price = liquidation_candle.close
-                    position.entry_price = round(candle.close * 1.0001, 1)
-                    position.save()
-                    print(created, position)
+                    if liquidation["side"] == "LONG":
+                        position, created = Position.objects.get_or_create(
+                            liquidation_datetime=liquidation["datetime"],
+                            start=candle.datetime + timedelta(minutes=5),
+                            side=Position._PostionSideChoices.SHORT,
+                            amount=0.0001,
+                            symbol=options["symbol"] + "T",
+                            strategy_type="reversed",
+                            confirmation_candles=confirmation_candles,
+                            candles_before_entry=candles_before_entry,
+                            liquidation_amount=liquidation["total_amount"],
+                            nr_of_liquidations=liquidation["total_nr_of_liquidations"],
+                            timeframe="5m",
+                        )
+                        position.moving_average_50 = ma50
+                        position.liquidation_closing_price = liquidation_candle.close
+                        position.entry_price = round(candle.close * 1.0001, 1)
+                        position.save()
+                        print(created, position)
+                        break
                     break

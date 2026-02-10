@@ -10,9 +10,6 @@ from django.utils import timezone
 
 from project.apps.core.models import Position, OHLCV
 
-if settings.USE_CACHE:
-    from django.core.cache import cache
-
 
 x10_TP_SL_PAIRS = [
     # 5R pairs
@@ -21,6 +18,18 @@ x10_TP_SL_PAIRS = [
     (50, 10),
     (60, 12),
     (70, 14),
+    # 4R pairs
+    (24, 6),
+    (32, 8),
+    (40, 10),
+    (48, 12),
+    (56, 14),
+    # 3R pairs
+    (18, 6),
+    (24, 8),
+    (30, 10),
+    (36, 12),
+    (42, 14),
 ]
 
 
@@ -71,9 +80,6 @@ class Command(BaseCommand):
             position.start + timezone.timedelta(days=14),
             timezone.datetime(until_date.year, until_date.month, until_date.day),
         )
-        cache_key = f"p{position.id}-{position.strategy_type}-l{last_candle.strftime('%Y%m%d')}-tp{int(tp * 10)}-sl{int(sl * 10)}"
-        if settings.USE_CACHE and (response_tuple := cache.get(cache_key)):
-            return response_tuple
         ohlcv_s = OHLCV.objects.filter(
             datetime__gte=position.start,
             datetime__lt=last_candle,
@@ -169,8 +175,6 @@ class Command(BaseCommand):
             three_month_wins,
             three_month_losses,
         )
-        if settings.USE_CACHE:
-            cache.set(key=cache_key, value=return_tuple)
         return return_tuple
 
     def run_algorithm_input(
@@ -231,16 +235,16 @@ class Command(BaseCommand):
 
             six_month_nr_of_r_s = round(
                 (tp / sl * six_month_wins)
-                - (six_month_wins * 0.05)
+                - (six_month_wins * (0.04 / sl))
                 - (six_month_losses)
-                - (six_month_losses * 0.1),
+                - (six_month_losses * (0.1 / sl)),
                 2,
             )
             three_month_nr_of_r_s = round(
                 (tp / sl * three_month_wins)
-                - (three_month_wins * 0.05)
+                - (three_month_wins * (0.04 / sl))
                 - (three_month_losses)
-                - (three_month_losses * 0.1),
+                - (three_month_losses * (0.1 / sl)),
                 2,
             )
             return_row[f"tpx10_{tpx10}_slx10_{slx10}"] = round(
