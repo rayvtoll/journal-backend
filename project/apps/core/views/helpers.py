@@ -3,6 +3,8 @@ import io
 from attr import dataclass
 import matplotlib.pyplot as plt
 
+from django.utils import timezone
+
 COLOR_LIST = [
     "#47DBCD",
     "#F3A0F2",
@@ -116,3 +118,61 @@ class WinStreak:
         self.current_win_streak = 0
         if self.current_loss_streak > self.longest_loss_streak:
             self.longest_loss_streak = self.current_loss_streak
+
+
+class Capital:
+    """Class for capital tracking."""
+
+    def __init__(self, initial_capital: float = INITIAL_CAPITAL):
+        self.initial_capital = initial_capital
+        self._transactions = []
+
+    def update_capital(self, date: timezone.datetime, returns: float):
+        """Updates capital based on returns."""
+        self._transactions.append((date, returns))
+
+    @property
+    def incremented_capital_per_date(self) -> list[tuple[timezone.date, float]]:
+        """Returns a list of capital values incremented by date."""
+        sorted_transactions = sorted(self._transactions, key=lambda x: x[0])
+        incremented_capital = []
+        current_capital = self.initial_capital
+        for date, returns in sorted_transactions:
+            current_capital += returns
+            incremented_capital.append((date.date(), round(current_capital, 2)))
+
+        # group by date and take the last capital value for each date
+        date_to_capital = {}
+        for date, capital in incremented_capital:
+            date_to_capital[date] = capital
+        return_list = sorted(date_to_capital.items(), key=lambda x: x[0])
+
+        # Fill in missing dates with previous return value to avoid gaps in the plot
+        date_range = []
+        returns_filled = []
+        current_date = return_list[0][0]
+        end_date = return_list[-1][0]
+        returns_dict = {d: r for d, r in return_list}
+        last_return = INITIAL_CAPITAL
+        while current_date <= end_date:
+            date_range.append(str(current_date))
+            if current_date in returns_dict:
+                last_return = returns_dict[current_date]
+            returns_filled.append(last_return)
+            current_date += timezone.timedelta(days=1)
+        return list(zip(date_range, returns_filled))
+
+    @property
+    def current_capital(self) -> float:
+        """Calculates current capital."""
+        total_returns = sum(returns for _, returns in self._transactions)
+        return round(self.initial_capital + total_returns, 2)
+
+    def get_capital_for_datetime(self, date: timezone.datetime) -> float:
+        """Calculates capital on a specific date."""
+        total_returns = sum(
+            returns
+            for transaction_date, returns in self._transactions
+            if transaction_date <= date
+        )
+        return round(self.initial_capital + total_returns, 2)
