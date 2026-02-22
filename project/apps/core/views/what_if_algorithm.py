@@ -19,6 +19,7 @@ from .helpers import (
     COLOR_LIST,
     INITIAL_CAPITAL,
     SNS_THEME,
+    Capital,
     image_encoder,
     plotter,
     WinStreak,
@@ -32,12 +33,9 @@ def process_position_what_if(
     wins: int,
     losses: int,
     win_streak: WinStreak,
-    total_returns: float,
     position: Position,
     object_list: list[Position],
-    returns: list[float],
-    dates: list[timezone.datetime],
-) -> Tuple[int, int, float]:
+) -> Tuple[int, int]:
     win = position.what_if_returns > 0
     if win:
         wins += 1
@@ -45,12 +43,9 @@ def process_position_what_if(
     else:
         losses += 1
         win_streak.record_loss()
-    total_returns += position.what_if_returns
     position.what_if_returns = f"$ {round(position.what_if_returns, 2):,}"
     object_list.insert(0, position)
-    returns.append(total_returns)
-    dates.append(position.start)
-    return wins, losses, total_returns
+    return wins, losses
 
 
 def process_tp(
@@ -61,8 +56,9 @@ def process_tp(
     tp: float,
     tp_amount: float,
     position: Position,
-    candle,
+    candle: OHLCV,
     amount: float,
+    capital: Capital,
 ) -> Tuple[bool, float]:
     if use_tp and not tp_finished:
         if direction == "long" and candle.high >= position.entry_price + (
@@ -73,6 +69,7 @@ def process_tp(
                 * position.entry_price
                 * BLOFIN_LIMIT_ORDER_FEE
             )
+            capital.update_capital(candle.datetime, position.what_if_returns)
             position.what_if_returns -= fees_for_closing
             local_returns = (position.entry_price * (general_tp * tp / 100) / 100) * (
                 amount * tp_amount / 100
@@ -89,10 +86,12 @@ def process_tp(
                 * BLOFIN_LIMIT_ORDER_FEE
             )
             position.what_if_returns -= fees_for_closing
+            capital.update_capital(candle.datetime, -1 * position.what_if_returns)
             local_returns = (position.entry_price * (general_tp * tp / 100) / 100) * (
                 position.amount * tp_amount / 100
             )
             position.what_if_returns += local_returns
+            capital.update_capital(candle.datetime, local_returns)
             amount = amount - (position.amount * tp_amount / 100)
             return True, amount
     return tp_finished, amount
@@ -122,11 +121,14 @@ class PositionWhatIfAlgorithmView(FormView):
             "BTCUSDT": "BTC/USDT:USDT",
             "ETHUSDT": "ETH/USDT:USDT",
         }
+        capital: Capital = Capital()
         positions: QuerySet[Position] = self.model.objects.exclude(
             candles_before_entry__in=form.cleaned_data["candles_before_entry_not"]
         )
         positions = positions.filter(
             confirmation_candles__in=form.cleaned_data["reversed_confirmation_candles"],
+            # try something
+            # liquidation_candle__volume__lte=3000,
         ).distinct()
         positions = positions.filter(
             timeframe="5m",
@@ -144,12 +146,11 @@ class PositionWhatIfAlgorithmView(FormView):
             positions = positions.filter(liquidation_amount__lte=max_liq)
         if symbols := form.cleaned_data.get("symbols"):
             positions = positions.filter(symbol__in=symbols)
+        if sides := form.cleaned_data.get("sides"):
+            positions = positions.filter(side__in=sides)
 
         positions = positions.distinct().order_by("liquidation_datetime")
 
-        returns = []
-        dates = []
-        total_returns = INITIAL_CAPITAL
         wins = 0
         losses = 0
         win_streak = WinStreak()
@@ -201,7 +202,9 @@ class PositionWhatIfAlgorithmView(FormView):
                     name
                     for name in file_names
                     if (
-                        name.startswith(f"algorithm_input-{position.symbol}-")
+                        name.startswith(
+                            f"algorithm_input-{position.symbol}-"
+                        )
                         and position.strategy_type in name
                         and name.endswith("-lvl2.csv")
                     )
@@ -249,7 +252,11 @@ class PositionWhatIfAlgorithmView(FormView):
                     1,
                 )
                 position.amount = round(
-                    (total_returns if compound else INITIAL_CAPITAL)
+                    (
+                        capital.get_capital_for_datetime(position.start)
+                        if compound
+                        else INITIAL_CAPITAL
+                    )
                     / sl
                     / position.entry_price
                     * percentage_per_trade
@@ -260,6 +267,7 @@ class PositionWhatIfAlgorithmView(FormView):
                 fees_for_opening = (
                     position.amount * position.entry_price * BLOFIN_LIMIT_ORDER_FEE
                 )
+                capital.update_capital(position.start, -1 * fees_for_opening)
                 position.what_if_returns -= fees_for_opening
                 if use_trailing_sl:
                     position_sl_price = (
@@ -302,9 +310,13 @@ class PositionWhatIfAlgorithmView(FormView):
                                 * BLOFIN_MARKET_ORDER_FEE
                             )
                             position.what_if_returns -= fees_for_closing
+                            capital.update_capital(
+                                candle.datetime, -1 * fees_for_closing
+                            )
                             loss_or_win = (
                                 position.entry_price - position_sl_price
                             ) * amount
+                            capital.update_capital(candle.datetime, loss_or_win)
                             position.what_if_returns -= loss_or_win
                             win = position.what_if_returns > 0
                             if win:
@@ -313,13 +325,10 @@ class PositionWhatIfAlgorithmView(FormView):
                             else:
                                 losses += 1
                                 win_streak.record_loss()
-                            total_returns += position.what_if_returns
                             position.what_if_returns = (
                                 f"$ {round(position.what_if_returns, 2):,}"
                             )
                             object_list.insert(0, position)
-                            returns.append(total_returns)
-                            dates.append(position.start)
                             last_long_candle_datetime = candle.datetime
                             break
 
@@ -333,18 +342,17 @@ class PositionWhatIfAlgorithmView(FormView):
                         fees_for_closing = (
                             amount * position.closing_price * BLOFIN_MARKET_ORDER_FEE
                         )
+                        capital.update_capital(candle.datetime, -1 * fees_for_closing)
                         position.what_if_returns -= fees_for_closing
                         loss = (position.entry_price * sl / 100) * amount
+                        capital.update_capital(candle.datetime, -1 * loss)
                         position.what_if_returns -= loss
-                        wins, losses, total_returns = process_position_what_if(
+                        wins, losses = process_position_what_if(
                             wins,
                             losses,
                             win_streak,
-                            total_returns,
                             position,
                             object_list,
-                            returns,
-                            dates,
                         )
                         last_long_candle_datetime = candle.datetime
                         break
@@ -367,6 +375,7 @@ class PositionWhatIfAlgorithmView(FormView):
                         position=position,
                         candle=candle,
                         amount=amount,
+                        capital=capital,
                     )
 
                     # TP2
@@ -380,6 +389,7 @@ class PositionWhatIfAlgorithmView(FormView):
                         position=position,
                         candle=candle,
                         amount=amount,
+                        capital=capital,
                     )
 
                     # TP3
@@ -393,6 +403,7 @@ class PositionWhatIfAlgorithmView(FormView):
                         position=position,
                         candle=candle,
                         amount=amount,
+                        capital=capital,
                     )
 
                     # TP4
@@ -406,6 +417,7 @@ class PositionWhatIfAlgorithmView(FormView):
                         position=position,
                         candle=candle,
                         amount=amount,
+                        capital=capital,
                     )
 
                     # final TP
@@ -418,18 +430,17 @@ class PositionWhatIfAlgorithmView(FormView):
                         fees_for_closing = (
                             amount * position.entry_price * BLOFIN_LIMIT_ORDER_FEE
                         )
+                        capital.update_capital(candle.datetime, -1 * fees_for_closing)
                         position.what_if_returns -= fees_for_closing
                         local_win = (position.entry_price * tp / 100) * amount
+                        capital.update_capital(candle.datetime, local_win)
                         position.what_if_returns += local_win
-                        wins, losses, total_returns = process_position_what_if(
+                        wins, losses = process_position_what_if(
                             wins,
                             losses,
                             win_streak,
-                            total_returns,
                             position,
                             object_list,
-                            returns,
-                            dates,
                         )
                         last_long_candle_datetime = candle.datetime
                         break
@@ -451,20 +462,21 @@ class PositionWhatIfAlgorithmView(FormView):
                                 * position.closing_price
                                 * BLOFIN_MARKET_ORDER_FEE
                             )
+                            capital.update_capital(
+                                candle.datetime, -1 * fees_for_closing
+                            )
                             position.what_if_returns -= fees_for_closing
                             loss_or_win = (
                                 position_sl_price - position.entry_price
                             ) * amount
+                            capital.update_capital(candle.datetime, loss_or_win)
                             position.what_if_returns -= loss_or_win
-                            wins, losses, total_returns = process_position_what_if(
+                            wins, losses = process_position_what_if(
                                 wins,
                                 losses,
                                 win_streak,
-                                total_returns,
                                 position,
                                 object_list,
-                                returns,
-                                dates,
                             )
                             last_short_candle_datetime = candle.datetime
                             break
@@ -479,18 +491,17 @@ class PositionWhatIfAlgorithmView(FormView):
                         fees_for_closing = (
                             amount * position.closing_price * BLOFIN_MARKET_ORDER_FEE
                         )
+                        capital.update_capital(candle.datetime, -1 * fees_for_closing)
                         position.what_if_returns -= fees_for_closing
                         loss = (position.entry_price * sl / 100) * amount
+                        capital.update_capital(candle.datetime, -1 * loss)
                         position.what_if_returns -= loss
-                        wins, losses, total_returns = process_position_what_if(
+                        wins, losses = process_position_what_if(
                             wins,
                             losses,
                             win_streak,
-                            total_returns,
                             position,
                             object_list,
-                            returns,
-                            dates,
                         )
                         last_short_candle_datetime = candle.datetime
                         break
@@ -513,6 +524,7 @@ class PositionWhatIfAlgorithmView(FormView):
                         position=position,
                         candle=candle,
                         amount=amount,
+                        capital=capital,
                     )
 
                     # TP2
@@ -526,6 +538,7 @@ class PositionWhatIfAlgorithmView(FormView):
                         position=position,
                         candle=candle,
                         amount=amount,
+                        capital=capital,
                     )
 
                     # TP3
@@ -539,6 +552,7 @@ class PositionWhatIfAlgorithmView(FormView):
                         position=position,
                         candle=candle,
                         amount=amount,
+                        capital=capital,
                     )
 
                     # TP4
@@ -552,6 +566,7 @@ class PositionWhatIfAlgorithmView(FormView):
                         position=position,
                         candle=candle,
                         amount=amount,
+                        capital=capital,
                     )
 
                     # final TP
@@ -564,18 +579,17 @@ class PositionWhatIfAlgorithmView(FormView):
                         fees_for_closing = (
                             amount * position.closing_price * BLOFIN_LIMIT_ORDER_FEE
                         )
+                        capital.update_capital(candle.datetime, -1 * fees_for_closing)
                         position.what_if_returns -= fees_for_closing
                         local_wins = (position.entry_price * tp / 100) * amount
+                        capital.update_capital(candle.datetime, local_wins)
                         position.what_if_returns += local_wins
-                        wins, losses, total_returns = process_position_what_if(
+                        wins, losses = process_position_what_if(
                             wins,
                             losses,
                             win_streak,
-                            total_returns,
                             position,
                             object_list,
-                            returns,
-                            dates,
                         )
                         last_short_candle_datetime = candle.datetime
                         break
@@ -617,8 +631,10 @@ class PositionWhatIfAlgorithmView(FormView):
                         fees_for_closing = (
                             sell_amount * candle.close * BLOFIN_MARKET_ORDER_FEE
                         )
+                        capital.update_capital(candle.datetime, -1 * fees_for_closing)
                         position.what_if_returns -= fees_for_closing
                         local_win = (candle.close - position.entry_price) * sell_amount
+                        capital.update_capital(candle.datetime, local_win)
                         position.what_if_returns += local_win
                         amount -= sell_amount
 
@@ -627,33 +643,15 @@ class PositionWhatIfAlgorithmView(FormView):
                         fees_for_closing = (
                             sell_amount * candle.close * BLOFIN_MARKET_ORDER_FEE
                         )
+                        capital.update_capital(candle.datetime, -1 * fees_for_closing)
                         position.what_if_returns -= fees_for_closing
                         local_win = (position.entry_price - candle.close) * sell_amount
+                        capital.update_capital(candle.datetime, local_win)
                         position.what_if_returns += local_win
                         amount -= sell_amount
 
-        # y as
-        y_as_data = [i for i in returns]
-
-        # x as
-        x_as_data = [str(i.date()) for i in dates]
-
-        # Fill in missing dates with previous return value to avoid gaps in the plot
-        date_range = []
-        returns_filled = []
-        current_date = dates[0].date() if dates else timezone.now().date()
-        end_date = dates[-1].date() if dates else timezone.now().date()
-        returns_dict = {d.date(): r for d, r in zip(dates, returns)}
-        last_return = INITIAL_CAPITAL
-        while current_date <= end_date:
-            date_range.append(str(current_date))
-            if current_date in returns_dict:
-                last_return = returns_dict[current_date]
-            returns_filled.append(last_return)
-            current_date += timezone.timedelta(days=1)
-
-        x_as_data = date_range
-        y_as_data = returns_filled
+        x_as_data = [date for date, _ in capital.incremented_capital_per_date]
+        y_as_data = [capital for _, capital in capital.incremented_capital_per_date]
 
         # create plot
         fig, ax = plt.subplots()
@@ -703,7 +701,7 @@ class PositionWhatIfAlgorithmView(FormView):
                         (
                             (
                                 (
-                                    (total_returns / INITIAL_CAPITAL)
+                                    (capital.current_capital / INITIAL_CAPITAL)
                                     ** (1 / (wins + losses))
                                 )
                                 - 1
@@ -714,8 +712,8 @@ class PositionWhatIfAlgorithmView(FormView):
                         * 100,
                         2,
                     )
-                    if total_returns
-                    else 1
+                    if (wins or losses)
+                    else 0
                 ),
                 longest_win_streak=win_streak.longest_win_streak,
                 longest_loss_streak=win_streak.longest_loss_streak,
