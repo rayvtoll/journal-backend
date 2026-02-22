@@ -65,8 +65,16 @@ class Position(models.Model):
         default=_TimeFrameChoices.FIVE_MINUTES,
     )
     symbol = models.CharField(max_length=20, default="BTCUSDT")
-    liquidation_closing_price = models.FloatField(null=True, blank=True)
-    moving_average_50 = models.FloatField(null=True, blank=True)
+    liquidation_candle = models.ForeignKey(
+        "OHLCV",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="positions",
+    )
+    liquidation_rsi = models.FloatField(null=True, blank=True)
+    liquidation_atr = models.FloatField(null=True, blank=True)
+    ##########
 
     @property
     def admin_url(self):
@@ -120,12 +128,13 @@ class OHLCV(models.Model):
         return f"OHLCV[{self.symbol} - {self.timeframe} - {self.datetime}]"
 
 
+class _LiquidationSideChoices(models.TextChoices):
+    LONG = "LONG", "LONG"
+    SHORT = "SHORT", "SHORT"
+
+
 class Liquidation(models.Model):
     """Liquidation model for storing liquidation events."""
-
-    class _LiquidationSideChoices(models.TextChoices):
-        LONG = "LONG", "LONG"
-        SHORT = "SHORT", "SHORT"
 
     symbol = models.CharField(max_length=20)
     datetime = models.DateTimeField()
@@ -136,6 +145,23 @@ class Liquidation(models.Model):
     def __str__(self):
         """String representation of the Liquidation model."""
         return f"Liquidation[{self.symbol} \t {self.timeframe} \t {self.datetime} \t {self.side}]"
+
+    class Meta:
+        unique_together = ("symbol", "datetime", "side", "timeframe")
+
+
+class RSILiquidation(models.Model):
+    """RSI Liquidation model for storing RSI-based liquidation events."""
+
+    symbol = models.CharField(max_length=20)
+    datetime = models.DateTimeField()
+    side = models.CharField(max_length=5, choices=_LiquidationSideChoices.choices)
+    rsi = models.FloatField()
+    timeframe = models.CharField(max_length=10, default="5min")
+
+    def __str__(self):
+        """String representation of the RSILiquidation model."""
+        return f"RSILiquidation[{self.symbol} \t {self.timeframe} \t {self.datetime} \t {self.side}]"
 
     class Meta:
         unique_together = ("symbol", "datetime", "side", "timeframe")
