@@ -28,6 +28,9 @@ class PositionTable(tables.Table):
             "nr_of_liquidations",
             "entry_price",
             "closing_price",
+            "liquidation_candle__volume",
+            "liquidation_rsi",
+            "liquidation_atr",
         )
         attrs = {
             "class": "table table-hover",

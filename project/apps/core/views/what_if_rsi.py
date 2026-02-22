@@ -47,16 +47,7 @@ class PositionWhatIfRSIView(FormView):
         )
 
         positions: QuerySet[Position] = self.model.objects.filter(
-            Q(
-                strategy_type="rsi_live",
-                candles_before_entry__in=form.cleaned_data["live_candles_before_entry"],
-            )
-            | Q(
-                strategy_type="rsi_reversed",
-                candles_before_entry__in=form.cleaned_data[
-                    "reversed_candles_before_entry"
-                ],
-            )
+            strategy_type="rsi_reversed", confirmation_candles__in=[1, 2]
         ).distinct()
         positions = positions.filter(timeframe="5m")
         if start_date_gte := form.cleaned_data["start_date_gte"]:
@@ -71,8 +62,9 @@ class PositionWhatIfRSIView(FormView):
             positions = positions.filter(
                 strategy_type__in=["rsi_" + st for st in strategy_types]
             )
+        if nr_of_liquidations := form.cleaned_data["nr_of_liquidations"]:
+            positions = positions.filter(nr_of_liquidations=nr_of_liquidations)
 
-        print(positions.count())
         positions = positions.order_by("start")
 
         returns = []
@@ -142,6 +134,7 @@ class PositionWhatIfRSIView(FormView):
                 datetime__gte=timezone.datetime.fromisoformat(iso_datetime),
                 datetime__lt=position.start + timezone.timedelta(days=28),
                 timeframe="5m",
+                symbol="BTC/USDT:USDT",
             ).order_by("datetime")
             tp1_finished = False
             tp2_finished = False
@@ -161,11 +154,12 @@ class PositionWhatIfRSIView(FormView):
                     ),
                     1,
                 )
-                position.amount = (
+                position.amount = round(
                     (total_returns if compound else INITIAL_CAPITAL)
                     / sl
                     / position.entry_price
-                    * percentage_per_trade
+                    * percentage_per_trade,
+                    3,
                 )
                 amount = position.amount
                 fees_for_opening = (

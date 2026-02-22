@@ -193,15 +193,6 @@ class PositionWhatIfView(FormView):
 
         object_list: list[Position] = []
         for position in positions:
-            #     if not position.moving_average_50 or not position.liquidation_closing_price:
-            #         continue
-            #     if position.moving_average_50:
-            #         if position.side == Position._PostionSideChoices.LONG:
-            #             if position.liquidation_closing_price > position.moving_average_50:
-            #                 continue
-            #         if position.side == Position._PostionSideChoices.SHORT:
-            #             if position.liquidation_closing_price < position.moving_average_50:
-            #                 continue
             match position.strategy_type:
                 case "reversed":
                     sl: float = form.cleaned_data["reversed_sl"]

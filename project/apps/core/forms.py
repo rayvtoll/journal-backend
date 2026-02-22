@@ -226,12 +226,14 @@ class WhatIfRSIForm(forms.Form):
     percentage_per_trade = forms.FloatField(
         label="Percentage per Trade (%)", initial=0.25, required=False
     )
+    nr_of_liquidations = forms.IntegerField(
+        label="Number of Liquidations", required=False
+    )
 
 
 class WhatIfAlgorithmForm(WhatIfForm):
     live_confirmation_candles = None
     liquidation_hours = None
-    liquidation_week_days = None
     entry_hours = None
     entry_week_days = None
     live_sl = None
@@ -242,6 +244,7 @@ class WhatIfAlgorithmForm(WhatIfForm):
         label="Strategy Types",
         choices=[
             ("reversed", "Reversed"),
+            ("live", "Live"),
         ],
         required=False,
         widget=forms.CheckboxSelectMultiple,
@@ -251,6 +254,13 @@ class WhatIfAlgorithmForm(WhatIfForm):
         choices=[("BTCUSDT", "BTCUSDT"), ("ETHUSDT", "ETHUSDT")],
         required=False,
         widget=forms.CheckboxSelectMultiple,
+    )
+    sides = forms.MultipleChoiceField(
+        label="Sides",
+        choices=[("LONG", "LONG"), ("SHORT", "SHORT")],
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        initial=["LONG", "SHORT"],
     )
 
 

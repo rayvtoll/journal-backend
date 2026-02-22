@@ -6,6 +6,28 @@ from django.db import models
 from project.apps.core.models import Position, OHLCV, Liquidation
 
 
+def calculate_rsi(candles: list[OHLCV], period: int = 14) -> float:
+    """Calculates the RSI for the given candles."""
+
+    if not len(candles) > period:
+        print("something went wrong")
+        return 50
+
+    gains = 0.0
+    losses = 0.0
+    for i in range(1, period + 1):
+        change = candles[-i].close - candles[-i - 1].close
+        if change > 0:
+            gains += change
+        else:
+            losses -= change
+    if losses == 0:
+        return 100.0
+    rs = gains / losses
+    rsi = 100.0 - (100.0 / (1.0 + rs))
+    return round(rsi, 2)
+
+
 class Command(BaseCommand):
     help = "Creates Positions based on the current t-Ray-dingbot algorithm conditions."
 
@@ -61,16 +83,6 @@ class Command(BaseCommand):
         )
 
         for liquidation in liquidations:
-            # calculate 50 moving average value at liquidation time
-            candles_for_ma50 = OHLCV.objects.filter(
-                datetime__lt=liquidation["datetime"],
-                timeframe="5m",
-                symbol=symbol_convertor.get("BTCUSD"),
-            ).order_by("-datetime")[:50]
-            if len(candles_for_ma50) == 50:
-                ma50 = round(sum(candle.close for candle in candles_for_ma50) / 50, 1)
-            else:
-                ma50 = None
 
             # liquidation amount threshold
             if liquidation["total_amount"] < 100:
@@ -86,6 +98,33 @@ class Command(BaseCommand):
                 continue
             liquidation_candle = liquidation_candles.first()
 
+            # RSI calculation
+            rsi_candles = OHLCV.objects.filter(
+                datetime__gte=liquidation["datetime"] - timedelta(minutes=5 * 14),
+                datetime__lte=liquidation["datetime"],
+                timeframe="5m",
+                symbol=symbol_convertor.get("BTCUSD"),
+            ).order_by("datetime")
+            rsi_candles = list(rsi_candles)
+            liquidation_rsi = calculate_rsi(rsi_candles)
+
+            # ATR calculation
+            atr_values = []
+            for i in range(1, len(rsi_candles)):
+                current_candle = rsi_candles[i]
+                previous_candle = rsi_candles[i - 1]
+                tr = max(
+                    current_candle.high - current_candle.low,
+                    abs(current_candle.high - previous_candle.close),
+                    abs(current_candle.low - previous_candle.close),
+                )
+                atr_values.append(tr)
+            atr = (
+                sum(atr_values) / len(atr_values) / rsi_candles[-1].close * 100
+                if atr_values
+                else 0
+            )
+
             # candles around liquidation
             volume_candles_around_liquidation = OHLCV.objects.filter(
                 symbol=symbol_convertor.get("BTCUSD"),
@@ -95,9 +134,7 @@ class Command(BaseCommand):
             ).order_by("datetime")
             if not volume_candles_around_liquidation.first():
                 continue
-            volume_candles_around_liquidation = [
-                i for i in volume_candles_around_liquidation
-            ]
+            volume_candles_around_liquidation = list(volume_candles_around_liquidation)
 
             # first candle after liquidation
             first_candles_after_liquidation = volume_candles_around_liquidation[2:]
@@ -147,11 +184,10 @@ class Command(BaseCommand):
                     #         liquidation_amount=liquidation["total_amount"],
                     #         nr_of_liquidations=liquidation["total_nr_of_liquidations"],
                     #         timeframe="5m",
+                    #         liquidation_candle=liquidation_candle,
+                    #         liquidation_rsi=liquidation_rsi,
+                    #         liquidation_atr=atr,
                     #     )
-                    #     position.moving_average_50 = ma50
-                    #     position.liquidation_closing_price = liquidation_candle.close
-                    #     position.entry_price = round(candle.close * 0.9999, 1)
-                    #     position.save()
                     #     print(created, position)
                     #     break
 
@@ -168,11 +204,10 @@ class Command(BaseCommand):
                             liquidation_amount=liquidation["total_amount"],
                             nr_of_liquidations=liquidation["total_nr_of_liquidations"],
                             timeframe="5m",
+                            liquidation_candle=liquidation_candle,
+                            liquidation_rsi=liquidation_rsi,
+                            liquidation_atr=atr,
                         )
-                        position.moving_average_50 = ma50
-                        position.liquidation_closing_price = liquidation_candle.close
-                        position.entry_price = round(candle.close * 0.9999, 1)
-                        position.save()
                         print(created, position)
                         break
                     break
@@ -192,11 +227,10 @@ class Command(BaseCommand):
                     #         liquidation_amount=liquidation["total_amount"],
                     #         nr_of_liquidations=liquidation["total_nr_of_liquidations"],
                     #         timeframe="5m",
+                    #         liquidation_candle=liquidation_candle,
+                    #         liquidation_rsi=liquidation_rsi,
+                    #         liquidation_atr=atr,
                     #     )
-                    #     position.moving_average_50 = ma50
-                    #     position.liquidation_closing_price = liquidation_candle.close
-                    #     position.entry_price = round(candle.close * 1.0001, 1)
-                    #     position.save()
                     #     print(created, position)
                     #     break
 
@@ -213,11 +247,10 @@ class Command(BaseCommand):
                             liquidation_amount=liquidation["total_amount"],
                             nr_of_liquidations=liquidation["total_nr_of_liquidations"],
                             timeframe="5m",
+                            liquidation_candle=liquidation_candle,
+                            liquidation_rsi=liquidation_rsi,
+                            liquidation_atr=atr,
                         )
-                        position.moving_average_50 = ma50
-                        position.liquidation_closing_price = liquidation_candle.close
-                        position.entry_price = round(candle.close * 1.0001, 1)
-                        position.save()
                         print(created, position)
                         break
                     break

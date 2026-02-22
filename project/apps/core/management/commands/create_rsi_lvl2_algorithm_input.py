@@ -57,7 +57,7 @@ class Command(BaseCommand):
             "BTCUSDT": "BTC/USDT:USDT",
             "ETHUSDT": "ETH/USDT:USDT",
         }
-        strategy_type = "reversed"
+        strategy_type = "rsi_reversed"
         positions: QuerySet[Position] = Position.objects.exclude(
             candles_before_entry=1,
         )
@@ -67,9 +67,9 @@ class Command(BaseCommand):
             strategy_type=strategy_type,
             liquidation_datetime__week_day__in=[2, 3, 4, 5, 6],  # monday-friday
             liquidation_datetime__date__lt=till_date,
-            liquidation_datetime__gte=till_date - timezone.timedelta(days=90),
+            liquidation_datetime__gte=till_date - timezone.timedelta(days=180),
             timeframe="5m",
-            liquidation_amount__gte=2000,
+            # liquidation_amount__gte=2000,
         ).distinct()
 
         performance_list: List[dict] = []
