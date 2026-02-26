@@ -61,38 +61,43 @@ def process_tp(
     capital: Capital,
 ) -> Tuple[bool, float]:
     if use_tp and not tp_finished:
-        if direction == "long" and candle.high >= position.entry_price + (
-            position.entry_price * (tp / 100 * general_tp / 100)
+        to_tp_amount = position.amount * tp_amount / 100
+        absolute_distance = position.entry_price * (tp / 100 * general_tp / 100)
+        if (
+            direction == "long"
+            and candle.high >= position.entry_price + absolute_distance
         ):
             fees_for_closing = (
-                (position.amount * tp_amount / 100)
-                * position.entry_price
+                to_tp_amount
+                * (position.entry_price + absolute_distance)
                 * BLOFIN_LIMIT_ORDER_FEE
             )
-            capital.update_capital(candle.datetime, position.what_if_returns)
+            capital.update_capital(candle.datetime, -1 * fees_for_closing)
             position.what_if_returns -= fees_for_closing
             local_returns = (position.entry_price * (general_tp * tp / 100) / 100) * (
-                amount * tp_amount / 100
+                to_tp_amount
             )
-            position.what_if_returns += local_returns
-            amount = amount - (amount * tp_amount / 100)
-            return True, amount
-        if direction == "short" and candle.low <= position.entry_price - (
-            position.entry_price * (tp / 100 * general_tp / 100)
-        ):
-            fees_for_closing = (
-                (position.amount * tp_amount / 100)
-                * position.entry_price
-                * BLOFIN_LIMIT_ORDER_FEE
-            )
-            position.what_if_returns -= fees_for_closing
-            capital.update_capital(candle.datetime, -1 * position.what_if_returns)
-            local_returns = (position.entry_price * (general_tp * tp / 100) / 100) * (
-                position.amount * tp_amount / 100
-            )
-            position.what_if_returns += local_returns
             capital.update_capital(candle.datetime, local_returns)
-            amount = amount - (position.amount * tp_amount / 100)
+            position.what_if_returns += local_returns
+            amount = amount - to_tp_amount
+            return True, amount
+        if (
+            direction == "short"
+            and candle.low <= position.entry_price - absolute_distance
+        ):
+            fees_for_closing = (
+                to_tp_amount
+                * (position.entry_price - absolute_distance)
+                * BLOFIN_LIMIT_ORDER_FEE
+            )
+            position.what_if_returns -= fees_for_closing
+            capital.update_capital(candle.datetime, -1 * fees_for_closing)
+            local_returns = (position.entry_price * (general_tp * tp / 100) / 100) * (
+                to_tp_amount
+            )
+            capital.update_capital(candle.datetime, local_returns)
+            position.what_if_returns += local_returns
+            amount = amount - to_tp_amount
             return True, amount
     return tp_finished, amount
 
@@ -154,6 +159,7 @@ class PositionWhatIfAlgorithmView(FormView):
         wins = 0
         losses = 0
         win_streak = WinStreak()
+        use_sl_to_entry: bool = form.cleaned_data["use_sl_to_entry"]
         sl_to_entry: float = form.cleaned_data["sl_to_entry"]
         use_tp1: bool = form.cleaned_data["use_tp1"]
         tp1: float = form.cleaned_data["tp1"]
@@ -181,6 +187,7 @@ class PositionWhatIfAlgorithmView(FormView):
 
         object_list: list[Position] = []
         for position in positions:
+            sl__to_entry_finished = False
             try:
                 try:
                     algorithm_input: pd.DataFrame = pd.read_csv(
@@ -202,9 +209,7 @@ class PositionWhatIfAlgorithmView(FormView):
                     name
                     for name in file_names
                     if (
-                        name.startswith(
-                            f"algorithm_input-{position.symbol}-"
-                        )
+                        name.startswith(f"algorithm_input-{position.symbol}-")
                         and position.strategy_type in name
                         and name.endswith("-lvl2.csv")
                     )
@@ -230,7 +235,6 @@ class PositionWhatIfAlgorithmView(FormView):
                 continue
 
             position.what_if_returns = 0
-            use_sl_to_entry: bool = form.cleaned_data["use_sl_to_entry"]
             position.start = position.start.replace(second=0, microsecond=0)
             ohlcv_s = OHLCV.objects.filter(
                 symbol=symbol_convertor.get(position.symbol),
@@ -358,11 +362,15 @@ class PositionWhatIfAlgorithmView(FormView):
                         break
 
                     # SL to entry
-                    if use_sl_to_entry and candle.high > position.entry_price + (
-                        position.entry_price * (sl_to_entry / 100 * tp / 100)
+                    if (
+                        use_sl_to_entry
+                        and not sl__to_entry_finished
+                        and candle.high
+                        > position.entry_price
+                        + (position.entry_price * (sl_to_entry / 100 * tp / 100))
                     ):
-                        sl = -sl
-                        use_sl_to_entry = False  # only use once
+                        sl = 0
+                        sl__to_entry_finished = True
 
                     # TP1
                     tp1_finished, amount = process_tp(
@@ -428,7 +436,7 @@ class PositionWhatIfAlgorithmView(FormView):
                             position.entry_price + (position.entry_price * tp / 100), 1
                         )
                         fees_for_closing = (
-                            amount * position.entry_price * BLOFIN_LIMIT_ORDER_FEE
+                            amount * position.closing_price * BLOFIN_LIMIT_ORDER_FEE
                         )
                         capital.update_capital(candle.datetime, -1 * fees_for_closing)
                         position.what_if_returns -= fees_for_closing
@@ -507,17 +515,21 @@ class PositionWhatIfAlgorithmView(FormView):
                         break
 
                     # SL to entry
-                    if use_sl_to_entry and candle.low < position.entry_price - (
-                        position.entry_price * (sl_to_entry / 100 * tp / 100)
+                    if (
+                        use_sl_to_entry
+                        and not sl__to_entry_finished
+                        and candle.low
+                        < position.entry_price
+                        - (position.entry_price * (sl_to_entry / 100 * tp / 100))
                     ):
-                        sl = -sl
-                        use_sl_to_entry = False  # only use once
+                        sl = 0
+                        sl__to_entry_finished = True
 
                     # TP1
                     tp1_finished, amount = process_tp(
                         use_tp=use_tp1,
                         tp_finished=tp1_finished,
-                        direction="long",
+                        direction="short",
                         general_tp=tp,
                         tp=tp1,
                         tp_amount=tp1_amount,
