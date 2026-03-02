@@ -65,32 +65,31 @@ class Command(BaseCommand):
             symbol=symbol,
             confirmation_candles__in=[1, 2],
             strategy_type=strategy_type,
-            liquidation_datetime__week_day__in=[2, 3, 4, 5, 6],  # monday-friday
             liquidation_datetime__date__lt=till_date,
-            liquidation_datetime__gte=till_date - timezone.timedelta(days=90),
+            liquidation_datetime__gte=till_date - timezone.timedelta(days=180),
             timeframe="5m",
             liquidation_amount__gte=2000,
         ).distinct()
 
         performance_list: List[dict] = []
 
-        for hour in range(24):
+        for day in range(1, 8):
             total_returns = INITIAL_CAPITAL
-            hour_row: dict = {"hour": hour}
-            hour_positions = positions.filter(liquidation_datetime__hour=hour).order_by(
-                "liquidation_datetime"
-            )
-            for position in hour_positions:
+            day_row: dict = {"day": day}
+            day_positions = positions.filter(
+                liquidation_datetime__week_day=day
+            ).order_by("liquidation_datetime")
+            for position in day_positions:
                 try:
                     try:
-                        # try the file of the liquidation date first
-                        algorithm_input: pd.DataFrame = pd.read_csv(
-                            f"data/algorithm_input-{position.symbol}-{position.liquidation_datetime.date()}-{position.strategy_type}.csv"
-                        )
-                    except:
                         # if not found, try the file of the Monday of that week
                         algorithm_input: pd.DataFrame = pd.read_csv(
-                            f"data/algorithm_input-{position.symbol}-{position.liquidation_datetime.date() - timezone.timedelta(days=position.liquidation_datetime.weekday())}-{position.strategy_type}.csv"
+                            f"data/algorithm_input-{position.symbol}-{position.liquidation_datetime.date() - timezone.timedelta(days=position.liquidation_datetime.weekday())}-{position.strategy_type}-lvl2.csv"
+                        )
+                    except:
+                        # try the file of the liquidation date first
+                        algorithm_input: pd.DataFrame = pd.read_csv(
+                            f"data/algorithm_input-{position.symbol}-{position.liquidation_datetime.date()}-{position.strategy_type}-lvl2.csv"
                         )
                 except:
                     # if not found, skip this position
@@ -98,14 +97,14 @@ class Command(BaseCommand):
                 trade: bool = False
                 tp: float = 0.0
                 sl: float = 0.0
-                performance_lvl1: float
+                performance: float = 0.0
                 for row in algorithm_input.itertuples():
-                    if row.hour == hour:
-                        trade, performance_lvl1, tp, sl = (
-                            row.trade_lvl1,
-                            row.performance_lvl1,
+                    if row.hour == position.liquidation_datetime.hour:
+                        trade, tp, sl, performance = (
+                            row.trade_lvl2,
                             row.tp,
                             row.sl,
+                            row.performance_lvl2,
                         )
 
                 if not trade:
@@ -116,9 +115,7 @@ class Command(BaseCommand):
                 ohlcv_s = OHLCV.objects.filter(
                     symbol=symbol_convertor.get(position.symbol),
                     datetime__gte=position.start,
-                    datetime__lt=min(
-                        position.start.date() + timezone.timedelta(days=28), till_date
-                    ),
+                    datetime__lt=position.start + timezone.timedelta(days=28),
                     timeframe="5m",
                 ).order_by("datetime")
                 if ohlcv_s.exists():
@@ -134,7 +131,7 @@ class Command(BaseCommand):
                         (total_returns)
                         / sl
                         / position.entry_price
-                        * min(performance_lvl1 / 10, 1),
+                        * min(performance / 10, 1),
                         4,
                     )
                     amount = position.amount
@@ -224,22 +221,16 @@ class Command(BaseCommand):
                             position.what_if_returns += local_wins
                             total_returns += position.what_if_returns
                             break
-            hour_row["performance_lvl2"] = round(total_returns - INITIAL_CAPITAL, 2)
-            performance_list.append(hour_row)
+            day_row["performance_lvl3"] = round(total_returns - INITIAL_CAPITAL, 2)
+            performance_list.append(day_row)
         df = pd.DataFrame(performance_list)
-        till_date_df = pd.read_csv(
-            f"data/algorithm_input-{symbol}-{till_date}-{strategy_type}.csv"
-        )
-        till_date_df = pd.merge(
-            till_date_df, df[["hour", "performance_lvl2"]], on="hour"
-        )
-        till_date_df["trade_lvl2"] = till_date_df.apply(
-            lambda row: (row.trade_lvl1 and row.performance_lvl2 > 0),
+        df["trade_lvl3"] = df.apply(
+            lambda row: row.performance_lvl3 > 0,
             axis=1,
         )
-        print("level 2 algorithm input:")
-        print(till_date_df)
-        till_date_df.to_csv(
-            f"data/algorithm_input-{symbol}-{till_date}-{strategy_type}-lvl2.csv",
+        print("level 3 algorithm day input:")
+        print(df)
+        df.to_csv(
+            f"data/algorithm_days-{symbol}-{till_date}-{strategy_type}-lvl3.csv",
             index=False,
         )

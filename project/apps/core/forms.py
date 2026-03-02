@@ -262,6 +262,12 @@ class WhatIfAlgorithmForm(WhatIfForm):
         required=False,
         initial=["LONG", "SHORT"],
     )
+    min_liquidation_rsi = forms.IntegerField(
+        label="Min Liquidation RSI", required=False
+    )
+    max_liquidation_rsi = forms.IntegerField(
+        label="Max Liquidation RSI", required=False
+    )
 
 
 FORM_DAY_TOGETHER_CHOICES = [

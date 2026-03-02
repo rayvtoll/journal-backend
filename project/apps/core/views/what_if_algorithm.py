@@ -34,14 +34,18 @@ def process_position_what_if(
     losses: int,
     win_streak: WinStreak,
     position: Position,
+    average_win_list: list[float],
+    average_loss_list: list[float],
     object_list: list[Position],
 ) -> Tuple[int, int]:
     win = position.what_if_returns > 0
     if win:
         wins += 1
+        average_win_list.append(position.what_if_returns)
         win_streak.record_win()
     else:
         losses += 1
+        average_loss_list.append(position.what_if_returns)
         win_streak.record_loss()
     position.what_if_returns = f"$ {round(position.what_if_returns, 2):,}"
     object_list.insert(0, position)
@@ -132,12 +136,9 @@ class PositionWhatIfAlgorithmView(FormView):
         )
         positions = positions.filter(
             confirmation_candles__in=form.cleaned_data["reversed_confirmation_candles"],
-            # try something
-            # liquidation_candle__volume__lte=3000,
         ).distinct()
         positions = positions.filter(
             timeframe="5m",
-            liquidation_datetime__week_day__in=[2, 3, 4, 5, 6],  # monday-friday
         )
         if strategy_types := form.cleaned_data["strategy_types"]:
             positions = positions.filter(strategy_type__in=strategy_types)
@@ -153,11 +154,21 @@ class PositionWhatIfAlgorithmView(FormView):
             positions = positions.filter(symbol__in=symbols)
         if sides := form.cleaned_data.get("sides"):
             positions = positions.filter(side__in=sides)
+        if liquidation__week_days := form.cleaned_data.get("liquidation_week_days"):
+            positions = positions.filter(
+                liquidation_datetime__week_day__in=liquidation__week_days
+            )
+        if min_liquidation_rsi := form.cleaned_data.get("min_liquidation_rsi"):
+            positions = positions.filter(liquidation_rsi__gte=min_liquidation_rsi)
+        if max_liquidation_rsi := form.cleaned_data.get("max_liquidation_rsi"):
+            positions = positions.filter(liquidation_rsi__lte=max_liquidation_rsi)
 
         positions = positions.distinct().order_by("liquidation_datetime")
 
         wins = 0
         losses = 0
+        average_win_list = []
+        average_loss_list = []
         win_streak = WinStreak()
         use_sl_to_entry: bool = form.cleaned_data["use_sl_to_entry"]
         sl_to_entry: float = form.cleaned_data["sl_to_entry"]
@@ -221,13 +232,15 @@ class PositionWhatIfAlgorithmView(FormView):
             trade_lvl2: bool = False
             tp: float = 0.0
             sl: float = 0.0
-            weight: float = 0.0
+            performance_lvl2: float = 0.0
+            performance_lvl1: float = 0.0
             for row in algorithm_input.itertuples():
                 if row.hour == hour:
-                    weight, tp, sl, trade_lvl2 = (
-                        row.weight,
+                    tp, sl, performance_lvl1, performance_lvl2, trade_lvl2 = (
                         row.tp,
                         row.sl,
+                        row.performance_lvl1,
+                        row.performance_lvl2,
                         row.trade_lvl2,
                     )
 
@@ -264,7 +277,7 @@ class PositionWhatIfAlgorithmView(FormView):
                     / sl
                     / position.entry_price
                     * percentage_per_trade
-                    * weight,
+                    * min(performance_lvl2 / 5, 1),
                     4,
                 )
                 amount = position.amount
@@ -356,6 +369,8 @@ class PositionWhatIfAlgorithmView(FormView):
                             losses,
                             win_streak,
                             position,
+                            average_win_list,
+                            average_loss_list,
                             object_list,
                         )
                         last_long_candle_datetime = candle.datetime
@@ -448,6 +463,8 @@ class PositionWhatIfAlgorithmView(FormView):
                             losses,
                             win_streak,
                             position,
+                            average_win_list,
+                            average_loss_list,
                             object_list,
                         )
                         last_long_candle_datetime = candle.datetime
@@ -484,6 +501,8 @@ class PositionWhatIfAlgorithmView(FormView):
                                 losses,
                                 win_streak,
                                 position,
+                                average_win_list,
+                                average_loss_list,
                                 object_list,
                             )
                             last_short_candle_datetime = candle.datetime
@@ -509,6 +528,8 @@ class PositionWhatIfAlgorithmView(FormView):
                             losses,
                             win_streak,
                             position,
+                            average_win_list,
+                            average_loss_list,
                             object_list,
                         )
                         last_short_candle_datetime = candle.datetime
@@ -601,6 +622,8 @@ class PositionWhatIfAlgorithmView(FormView):
                             losses,
                             win_streak,
                             position,
+                            average_win_list,
+                            average_loss_list,
                             object_list,
                         )
                         last_short_candle_datetime = candle.datetime
@@ -692,7 +715,7 @@ class PositionWhatIfAlgorithmView(FormView):
         ax.set_ylim(bottom=min(y_as_data) if y_as_data else 0)
 
         # Show only every Nth date label to avoid clutter
-        N = max(1, len(x_as_data) // 20)
+        N = max(1, len(x_as_data) // 7)
         ax.set_xticks([x_as_data[i] for i in range(0, len(x_as_data), N)])
 
         # add image to context
@@ -727,7 +750,23 @@ class PositionWhatIfAlgorithmView(FormView):
                     if (wins or losses)
                     else 0
                 ),
-                longest_win_streak=win_streak.longest_win_streak,
-                longest_loss_streak=win_streak.longest_loss_streak,
+                win_streak=win_streak.longest_win_streak,
+                loss_streak=win_streak.longest_loss_streak,
+                avg_win=round(
+                    (
+                        sum(average_win_list) / len(average_win_list)
+                        if average_win_list
+                        else 0
+                    ),
+                    2,
+                ),
+                avg_loss=round(
+                    (
+                        sum(average_loss_list) / len(average_loss_list)
+                        if average_loss_list
+                        else 0
+                    ),
+                    2,
+                ),
             )
         )

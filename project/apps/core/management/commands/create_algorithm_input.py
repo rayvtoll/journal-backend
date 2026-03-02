@@ -190,12 +190,11 @@ class Command(BaseCommand):
         tp: float = tpx10 / 10
         return_list: List[dict] = []
         for hour in range(24):
-            # for hour in [2, 3, 4, 14, 15, 16]:
             return_row: dict = {"hour": hour}
             positions: QuerySet[Position] = (
                 Position.objects.filter(
                     symbol=symbol,
-                    liquidation_amount__gte=2000,
+                    liquidation_amount__gte=2000,  # TODO: parameterize this
                     timeframe="5m",
                     start__gte=until_date - timezone.timedelta(days=int(180)),
                     start__lt=until_date,
@@ -248,7 +247,7 @@ class Command(BaseCommand):
                 2,
             )
             return_row[f"tpx10_{tpx10}_slx10_{slx10}"] = round(
-                ((six_month_nr_of_r_s * 2) + (three_month_nr_of_r_s * 4)) / 2,
+                ((six_month_nr_of_r_s / 2) + (three_month_nr_of_r_s)) / 2,
                 2,
             )
             return_row["trades"] = total_losses + total_wins
@@ -274,7 +273,12 @@ class Command(BaseCommand):
         filter_kwargs = {"confirmation_candles__in": [1, 2]}
         for tpx10, slx10 in x10_TP_SL_PAIRS:
             result = self.run_algorithm_input(
-                symbol, till_date, tpx10, slx10, strategy_type, **filter_kwargs
+                symbol,
+                till_date,
+                tpx10,
+                slx10,
+                strategy_type,
+                **filter_kwargs,
             )
             print(f"Completed TP {tpx10 / 10} SL {slx10 / 10} for {strategy_type}")
             tp_dataframe = pd.DataFrame(result)
@@ -305,10 +309,10 @@ class Command(BaseCommand):
             writer = csv.writer(f)
             header_row = [
                 "hour",
-                "trade",
-                "weight",
                 "tp",
                 "sl",
+                "performance_lvl1",
+                "trade_lvl1",
             ]
             print(f"Header for {strategy_type}:")
             print("\t".join(header_row))
@@ -318,13 +322,12 @@ class Command(BaseCommand):
             f"{settings.ALGORITHM_EXPORT_PATH}/data-{symbol}-{till_date}-{strategy_type}.csv"
         )
         for row in df.itertuples(index=False):
-            tp_percentage = max(
-                [getattr(row, f"tpx10_{i}_slx10_{j}") for i, j in x10_TP_SL_PAIRS],
+            tp_percentage = round(
+                max(
+                    [getattr(row, f"tpx10_{i}_slx10_{j}") for i, j in x10_TP_SL_PAIRS],
+                ),
+                2,
             )
-            r_weight = tp_percentage / 20 if tp_percentage >= 0.1 else 0.0
-            if r_weight >= 1.0:
-                r_weight = r_weight * 0.5 + 0.5
-            weighted = round(min(r_weight / 2, 1.0), 2)
             trade = True if tp_percentage >= 0.1 else False
             highest_sl_value: int = 0
             highest_tp_value: int = 0
@@ -343,10 +346,10 @@ class Command(BaseCommand):
                 writer = csv.writer(f)
                 write_row = [
                     row.hour,
-                    "true" if trade else "false",
-                    weighted if trade else None,
                     highest_tp_value if trade else None,
                     highest_sl_value if trade else None,
+                    tp_percentage,
+                    trade,
                 ]
                 print("\t".join(map(str, write_row)))
                 writer.writerow(write_row)
