@@ -232,6 +232,9 @@ class WhatIfRSIForm(forms.Form):
 
 
 class WhatIfAlgorithmForm(WhatIfForm):
+    use_only_2r_trades = forms.BooleanField(
+        label="Use Only 2R Trades", required=False, initial=True
+    )
     live_confirmation_candles = None
     liquidation_hours = None
     entry_hours = None

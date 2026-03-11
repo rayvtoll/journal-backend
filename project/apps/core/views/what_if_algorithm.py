@@ -195,6 +195,7 @@ class PositionWhatIfAlgorithmView(FormView):
         rsi_lower: int = form.cleaned_data["rsi_lower"]
         rsi_upper: int = form.cleaned_data["rsi_upper"]
         rsi_sell_percentage: float = form.cleaned_data["rsi_sell_percentage"]
+        use_only_2r_trades: bool = form.cleaned_data["use_only_2r_trades"]
 
         object_list: list[Position] = []
         for position in positions:
@@ -246,6 +247,10 @@ class PositionWhatIfAlgorithmView(FormView):
 
             if not trade_lvl2:
                 continue
+
+            if use_only_2r_trades:
+                sl = sl + 0.3
+                tp = sl * 2
 
             position.what_if_returns = 0
             position.start = position.start.replace(second=0, microsecond=0)
@@ -356,12 +361,19 @@ class PositionWhatIfAlgorithmView(FormView):
                         position.closing_price = round(
                             position.entry_price - (position.entry_price * sl / 100), 1
                         )
+                        position.closing_price = round(
+                            position.closing_price
+                            - (
+                                position.closing_price * 0.02 / 100
+                            ),  # average slippage of 0.02% on sl market orders
+                            1,
+                        )
                         fees_for_closing = (
                             amount * position.closing_price * BLOFIN_MARKET_ORDER_FEE
                         )
                         capital.update_capital(candle.datetime, -1 * fees_for_closing)
                         position.what_if_returns -= fees_for_closing
-                        loss = (position.entry_price * sl / 100) * amount
+                        loss = (position.entry_price - position.closing_price) * amount
                         capital.update_capital(candle.datetime, -1 * loss)
                         position.what_if_returns -= loss
                         wins, losses = process_position_what_if(
@@ -515,12 +527,19 @@ class PositionWhatIfAlgorithmView(FormView):
                         position.closing_price = round(
                             position.entry_price + (position.entry_price * sl / 100), 1
                         )
+                        position.closing_price = round(
+                            position.closing_price
+                            + (
+                                position.closing_price * 0.02 / 100
+                            ),  # average slippage of 0.02% on sl market orders
+                            1,
+                        )
                         fees_for_closing = (
                             amount * position.closing_price * BLOFIN_MARKET_ORDER_FEE
                         )
                         capital.update_capital(candle.datetime, -1 * fees_for_closing)
                         position.what_if_returns -= fees_for_closing
-                        loss = (position.entry_price * sl / 100) * amount
+                        loss = (position.closing_price - position.entry_price) * amount
                         capital.update_capital(candle.datetime, -1 * loss)
                         position.what_if_returns -= loss
                         wins, losses = process_position_what_if(

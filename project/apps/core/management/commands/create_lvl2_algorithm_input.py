@@ -1,5 +1,7 @@
+from dataclasses import dataclass
 from datetime import date
-import os
+from decouple import config
+import discord
 import pandas as pd
 from typing import List
 
@@ -14,6 +16,50 @@ INITIAL_CAPITAL = 100
 
 BLOFIN_MARKET_ORDER_FEE = 0.06 / 100  # 0.06% for non VIP users
 BLOFIN_LIMIT_ORDER_FEE = 0.02 / 100  # 0.002% for non VIP users
+
+USE_DISCORD = config("USE_DISCORD", cast=bool, default=False)
+if USE_DISCORD:
+    DISCORD_CHANNEL_WAITING_ID = config("DISCORD_CHANNEL_WAITING_ID", cast=int)
+    DISCORD_PRIVATE_KEY = config("DISCORD_PRIVATE_KEY")
+    USE_AT_EVERYONE = config("USE_AT_EVERYONE", cast=bool, default="false")
+
+
+@dataclass
+class DiscordMessage:
+    """DiscordMessage class to hold the discord message data"""
+
+    channel_id: str
+    messages: List[str]
+    at_everyone: bool = False
+
+
+def post_to_discord(discord_message: DiscordMessage) -> None:
+    """Post messages to discord and empty the message queue"""
+
+    if not USE_DISCORD:
+        return
+
+    intents = discord.Intents.default()
+    intents.messages = True
+    client = discord.Client(intents=intents)
+
+    @client.event
+    async def on_ready():
+        try:
+            channel = client.get_channel(discord_message.channel_id)
+            if discord_message.at_everyone:
+                await channel.send(f"@everyone\n")
+            for message in discord_message.messages:
+                await channel.send(f"{message}")
+        except Exception as e:
+            print(f"Failed to post to Discord: {e}")
+        finally:
+            await client.close()
+
+    try:
+        client.run(token=DISCORD_PRIVATE_KEY, log_handler=None)
+    except Exception as e:
+        print(f"Failed to post to Discord: {e}")
 
 
 class Command(BaseCommand):
@@ -237,9 +283,19 @@ class Command(BaseCommand):
             lambda row: (row.trade_lvl1 and row.performance_lvl2 > 0),
             axis=1,
         )
-        print("level 2 algorithm input:")
+        print(f"level 2 algorithm input for {symbol} on {till_date} ({strategy_type}):")
         print(till_date_df)
         till_date_df.to_csv(
             f"data/algorithm_input-{symbol}-{till_date}-{strategy_type}-lvl2.csv",
             index=False,
         )
+        if USE_DISCORD:
+            post_to_discord(
+                DiscordMessage(
+                    channel_id=DISCORD_CHANNEL_WAITING_ID,
+                    messages=[
+                        f"Level 2 algorithm input for {symbol} on {till_date} ({strategy_type}):",
+                        f"``` {till_date_df.to_csv(index=False)} ```",
+                    ],
+                )
+            )
