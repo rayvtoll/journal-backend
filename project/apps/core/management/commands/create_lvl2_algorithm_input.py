@@ -294,8 +294,11 @@ class Command(BaseCommand):
                 DiscordMessage(
                     channel_id=DISCORD_CHANNEL_WAITING_ID,
                     messages=[
-                        f"Level 2 algorithm input for {symbol} on {till_date} ({strategy_type}):",
-                        f"``` {till_date_df.to_csv(index=False)} ```",
+                        f"Level 2 algorithm input for {symbol} on {till_date} ({strategy_type}).",
+                        f"Save as algorithm_input/algorithm_input-{symbol}-{till_date}-{strategy_type}-lvl2.csv",
+                        f"""```
+{till_date_df.to_csv(index=False)}
+```""",
                     ],
                 )
             )
