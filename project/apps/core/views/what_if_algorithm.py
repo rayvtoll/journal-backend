@@ -249,7 +249,7 @@ class PositionWhatIfAlgorithmView(FormView):
                 continue
 
             if use_only_2r_trades:
-                sl = sl + 0.3
+                sl = sl * 1.5
                 tp = sl * 2
 
             position.what_if_returns = 0
